@@ -33,17 +33,18 @@ The server protocol stays unchanged except for `lang` in `/api/info`.
 ## Phase 2+: Optional features (each independent, build later in any order)
 Each feature has an on/off switch (`.env` flag with a lobby toggle where it makes sense). With every switch off, the game behaves exactly like Phase 1.
 
-**A. Avatars + colours (`FEATURE_AVATARS`)**
-- The join form adds an emoji avatar grid and a colour choice, and the `join` message carries `avatar` and `color`.
-- `main.py` stores both in `g.players` and includes them in `lobby_msg()` and `board()`.
-- The TV shows avatars in the lobby, scoreboard and "who has answered" row. The `answered` message gets a pid list instead of only a count.
-- Without avatars: initials on a hashed colour.
+**A. Avatars + colours (`FEATURE_AVATARS`, default on) — done**
+- The join form has a colour choice and an emoji avatar grid (or the name's initial). The `join` message carries `avatar` and `color`; the server validates both against `COLORS`/`AVATARS` in `main.py`.
+- The server always assigns a colour, preferring a free one, so players get distinct colours even with the flag off.
+- Players are objects (`name`, `avatar`, `color`) in `lobby`, `joined` and the scores. `answered` carries the active players with a `done` flag, so the TV lights up avatars as people answer.
+- Identity reset: a saved identity only auto-rejoins if the player was active in the last 2 hours. Otherwise the join form opens pre-filled. Name and look can be changed from the lobby and game-over screens (not mid-game); duplicate names get a number.
+- Flag off: name only, initial on the assigned colour.
 
-**B. Animated scoreboard + podium (TV only)**
-- Animate scoreboard reordering with FLIP between reveals (keep the previous order in JS).
-- Show a streak flame for 3+ correct answers in a row (server tracks `streak` per player in `reveal()`).
-- The final screen becomes a 3-place podium with a CSS confetti burst.
-- No protocol change other than `streak` in the scores.
+**B. Animated scoreboard + podium (TV only) — done**
+- On reveal, leaderboard rows start at their previous rank and slide into place, scores count up, then the +points appear.
+- The server tracks `streak`, `best` and `correct` per player. A flame badge shows on 3+ correct in a row, and the phone shows "🔥 3 in a row".
+- The final screen is a 3-place podium with confetti, the winner's stats, and places 4–8 in a short list.
+- No flag: it is purely visual, and animations are skipped with `prefers-reduced-motion`.
 
 **C. Sound, timer ring, haptics**
 - TV: small sound files in `static/sfx/` (tick during the last 5s, reveal, fanfare) with a mute toggle remembered in localStorage. Browsers block sound until the first click, so the Start button unlocks audio.

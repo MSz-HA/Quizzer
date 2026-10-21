@@ -1,17 +1,29 @@
 // @ts-check
 // Phone controller: join, suggest a category, answer, see the result
-import { $, esc, t, num, loadInfo, shape, startTimer, stopTimer, paintTimer, send, connect, fsSupported, isFullscreen, goFullscreen } from './common.js';
+import { $, esc, t, num, loadInfo, shape, avatar, startTimer, stopTimer, paintTimer, send, connect, fsSupported, isFullscreen, goFullscreen } from './common.js';
 
 /** @typedef {import('./types').ServerMsg} ServerMsg */
 /** @typedef {import('./types').QuestionMsg} QuestionMsg */
 /** @typedef {import('./types').RevealMsg} RevealMsg */
+/** @typedef {import('./types').Player} Player */
+/** @typedef {import('./types').Info} Info */
 
 const app = /** @type {HTMLElement} */ ($('app'));
 const fs = /** @type {HTMLElement} */ ($('fs'));
 /** @param {string} id */
 const input = id => /** @type {HTMLInputElement | null} */ ($(id));
 const pid = localStorage.pid || (localStorage.pid = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now()));
-let name = localStorage.name || '';
+/** Saved identity. Reused automatically only if the player was active recently (same game). @type {Player} */
+let me = { name: localStorage.name || '', avatar: localStorage.avatar || '', color: localStorage.color || '' };
+const RECENT_MS = 2 * 60 * 60 * 1000;
+const recent = Date.now() - Number(localStorage.seen || 0) < RECENT_MS;
+/** Join form state while picking a name and look. @type {Player} */
+let draft = { ...me };
+/** @type {Partial<Info>} */
+let info = {};
+/** @type {Player[]} */
+let lobbyPlayers = [];
+let editing = false, connected = false;
 /** @type {QuestionMsg | null} */
 let cur = null;
 
@@ -71,33 +83,65 @@ async function keepAwake() {
     }
   } catch (e) {}
 }
-document.addEventListener('visibilitychange', () => { if (name) keepAwake(); });
+document.addEventListener('visibilitychange', () => { if (connected) keepAwake(); });
 
 // ---- Screens ----
+/** Name (and, with avatars on, colour + avatar) form. Used to join and to change identity between games. */
 function joinForm() {
+  editing = true;
+  const colors = info.colors || [], avatars = info.avatars || [];
+  const others = lobbyPlayers.filter(p => p.name !== me.name), taken = new Set(others.map(p => p.color));
+  if (!draft.color || !colors.includes(draft.color)) draft.color = pickFree(colors, taken);
+  const pickers = avatars.length ? `
+      <div class="pickrow"><span class="lbl">${t('color')}</span>
+        <div class="swatches">${colors.map(c => `<button class="sw${c === draft.color ? ' on' : ''}${taken.has(c) ? ' taken' : ''}" style="background:${c}"
+          data-action="color" data-v="${c}" aria-label="${t('color')} ${c}" aria-pressed="${c === draft.color}"></button>`).join('')}</div></div>
+      <div class="pickrow"><span class="lbl">${t('avatar')}</span>
+        <div class="faces">${['', ...avatars].map(a => `<button class="face${a === draft.avatar ? ' on' : ''}" data-action="avatar" data-v="${a}"
+          aria-label="${a || t('initial')}" aria-pressed="${a === draft.avatar}">${a || esc([...(draft.name || '?')][0])}</button>`).join('')}</div></div>` : '';
   show(`<div class="center">
-      <div style="display:flex;flex-direction:column;align-items:center;gap:14px"><div class="logo">Q</div><h1 class="title" style="font-size:40px">Quizzer</h1></div>
+      <div class="who-am-i">${avatars.length ? `<div id="preview">${avatar({ ...draft, name: draft.name || '?' }, 96)}</div>` : '<div class="logo">Q</div>'}
+        <h1 class="title" style="font-size:40px">Quizzer</h1></div>
       <label for="n">${t('your_name')}</label>
-      <input id="n" maxlength="16" value="${esc(name)}" autocomplete="off" enterkeyhint="go">
-      <button class="btn" data-action="join">${t('join')}</button>
-      <p class="hint">${t('controller')}</p></div>`);
+      <input id="n" maxlength="16" value="${esc(draft.name)}" autocomplete="off" enterkeyhint="go">
+      ${pickers}
+      <button class="btn" data-action="join">${t(connected ? 'save' : 'join')}</button>
+      ${connected || avatars.length ? '' : `<p class="hint">${t('controller')}</p>`}</div>`);
 }
 function join() {
   const field = input('n');
   const v = field ? field.value.trim() : '';
   if (!v) return field?.focus();
-  name = v;
-  localStorage.name = name;
+  me = { name: v, avatar: info.avatars?.length ? draft.avatar : '', color: draft.color };
+  Object.assign(localStorage, me);
+  editing = false;
   goFullscreen();
   keepAwake();
   msg(t('connecting'));
-  connect('player', on, () => send({ type: 'join', pid, name }));
+  if (connected) send(joinMsg());
+  else start();
+}
+/** Random item, preferring ones nobody else uses @param {string[]} list @param {Set<string>} taken */
+const pickFree = (list, taken) => {
+  const free = list.filter(x => !taken.has(x)), pool = free.length ? free : list;
+  return pool[Math.floor(Math.random() * pool.length)] || '';
+};
+const joinMsg = () => /** @type {const} */ ({ type: 'join', pid, ...me });
+function start() {
+  connected = true;
+  connect('player', on, () => send(joinMsg()));
+}
+const editBtn = () => `<button class="btn alt" data-action="edit">${t(info.avatars?.length ? 'edit_look' : 'edit_name')}</button>`;
+/** Waiting in the lobby, or after a game: show who you are and let you change it */
+function lobbyScreen(title = t('youre_in', { name: esc(me.name) }), text = `${t('wait_host')}<br>${t('n_players', { n: lobbyPlayers.length })}`) {
+  show(`<div class="center mid">${avatar(me, 120, 'pop')}<h1 class="title">${title}</h1>
+    <p class="muted" style="font-size:19px">${text}</p>${editBtn()}</div>`);
 }
 
 /** @param {string} status */
 function catForm(status) {
   const prevText = input('c')?.value ?? '';
-  show(`${hdr(esc(name))}
+  show(`${hdr(esc(me.name))}
     <div class="center">
       <div style="display:flex;flex-direction:column;gap:8px"><h1 class="title">${t('suggest')}</h1>
         <p class="muted" style="font-size:18px;line-height:1.35">${t('suggest_hint')}</p></div>
@@ -145,18 +189,26 @@ function result(m) {
     <div class="center mid">
       <div class="badge pop"><svg width="50%" height="50%" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${icon}</svg></div>
       <h1 class="title" style="font-size:44px">${t(kind)}</h1>
-      ${sub ? `<div class="delta">${sub}</div>` : ''}</div>
+      ${sub ? `<div class="delta">${sub}</div>` : ''}
+      ${y.correct && y.streak >= 3 ? `<div class="delta">🔥 ${t('in_a_row', { n: y.streak })}</div>` : ''}</div>
     <div class="stats"><div><small>${t('score')}</small><b>${num(y.score)}</b></div>
       <div><small>${t('rank')}</small><b>#${y.rank} / ${m.scores.length}</b></div></div>`, { mood: kind });
 }
 
 /** @param {ServerMsg} m */
 function on(m) {
+  localStorage.seen = Date.now();
+  if (editing && m.type === 'lobby') { lobbyPlayers = m.players; return; }  // don't clobber the form
+  if (m.type !== 'joined') editing = false;
   switch (m.type) {
-    case 'joined': name = m.name; break;
+    case 'joined':
+      me = { name: m.name, avatar: m.avatar, color: m.color };  // the server may rename duplicates
+      Object.assign(localStorage, me);
+      break;
     case 'lobby':
       stopTimer();
-      msg(t('youre_in', { name: esc(name) }), `${t('wait_host')}<br>${t('n_players', { n: m.players.length })}`);
+      lobbyPlayers = m.players;
+      lobbyScreen();
       break;
     case 'categories': startTimer(m.seconds); catForm(''); break;
     case 'category_ok': catForm(`${t('cat_sent', { text: `<b>${esc(m.text)}</b>` })}<br>${t('cat_change')}`); break;
@@ -169,8 +221,8 @@ function on(m) {
     case 'reveal': stopTimer(); result(m); break;
     case 'scores': {
       stopTimer();
-      const i = m.scores.findIndex(s => s.name === name);
-      msg(t(m.final ? 'game_over' : 'round_over'), i < 0 ? '' : t('you_are', { rank: i + 1, score: num(m.scores[i].score) }));
+      const i = m.scores.findIndex(s => s.name === me.name);
+      lobbyScreen(t(m.final ? 'game_over' : 'round_over'), i < 0 ? '' : t('you_are', { rank: i + 1, score: num(m.scores[i].score) }));
       break;
     }
     case 'error': stopTimer(); msg(t('hold_on'), esc(m.message)); break;
@@ -182,10 +234,24 @@ app.addEventListener('click', e => {
   if (!b) return;
   switch (b.dataset.action) {
     case 'join': join(); break;
+    case 'edit': draft = { ...me }; joinForm(); break;
+    case 'color': case 'avatar':
+      draft = { ...draft, name: input('n')?.value.trim() || '', [b.dataset.action]: b.dataset.v || '' };
+      joinForm();
+      break;
     case 'category': sendCat(false); break;
     case 'surprise': sendCat(true); break;
     case 'answer': if (cur) choose(cur, Number(b.dataset.i)); break;
   }
+});
+// Keep the avatar preview's initial in sync with the typed name
+app.addEventListener('input', e => {
+  const el = /** @type {HTMLInputElement} */ (e.target), preview = $('preview');
+  if (el.id !== 'n' || !preview) return;
+  draft.name = el.value.trim();
+  preview.innerHTML = avatar({ ...draft, name: draft.name || '?' }, 96);
+  const initial = app.querySelector('.face[data-v=""]');
+  if (initial) initial.textContent = [...(draft.name || '?')][0];
 });
 app.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
@@ -194,8 +260,13 @@ app.addEventListener('keydown', e => {
   if (id === 'c') sendCat(false);
 });
 
-loadInfo().then(() => {
+loadInfo().then(i => {
+  info = i;
+  lobbyPlayers = i.players || [];
+  const avatars = i.avatars || [];
+  if (!me.name && avatars.length) draft.avatar = pickFree(avatars, new Set(lobbyPlayers.map(p => p.avatar)));  // first visit
   updateFs();
-  if (name) { msg(t('connecting')); keepAwake(); connect('player', on, () => send({ type: 'join', pid, name })); }
+  // Same game (e.g. page refresh): rejoin straight away. Otherwise offer the saved identity to confirm or change.
+  if (me.name && recent) { msg(t('connecting')); keepAwake(); start(); }
   else joinForm();
 });

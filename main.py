@@ -19,6 +19,7 @@ Q_SECONDS = int(os.getenv("QUESTION_SECONDS", "60"))
 CATEGORY_SECONDS = int(os.getenv("CATEGORY_SECONDS", "120"))
 PUBLIC_URL = os.getenv("PUBLIC_URL")  # override if running in Docker
 DEV = os.getenv("QUIZ_DEV") == "1"  # set by --dev; uses mock questions instead of Claude
+FEATURE_AVATARS = os.getenv("FEATURE_AVATARS", "1") == "1"  # players pick a colour and emoji avatar
 COUNTS = (5, 10, 20, 50, 100)
 BATCH = 10  # max questions per Claude request
 
@@ -30,6 +31,10 @@ CATEGORIES = [
     "Internet and memes", "Mythology", "Science fiction", "Chemistry in daily life",
     "Famous scandals", "Architecture", "Board games and toys",
 ]
+
+# Player colours (all readable with dark text) and avatars to pick from
+COLORS = ("#FF8A80", "#5EEAD4", "#FFD166", "#93A8FF", "#F0A6FF", "#A7F3A0", "#FFB38A", "#7DD3FC")
+AVATARS = ("🦊", "🐼", "🐸", "🐙", "🦄", "🐯", "🐨", "🐵", "🦉", "🐧", "🐢", "🦖", "🐝", "🦁", "🐶", "🐱")
 
 client = None if DEV else AsyncAnthropic()  # reads ANTHROPIC_API_KEY
 app = FastAPI()
@@ -75,13 +80,42 @@ async def to_hosts(msg):
     await asyncio.gather(*(send(w, msg) for w in list(g.hosts)))
 
 
+def public(p):
+    """What other screens may know about a player."""
+    return {"name": p["name"], "avatar": p["avatar"], "color": p["color"]}
+
+
 def board():
-    return sorted(({"name": p["name"], "score": p["score"]} for p in g.players.values()),
-                  key=lambda x: -x["score"])
+    return sorted(({**public(p), "score": p["score"], "streak": p["streak"], "best": p["best"],
+                    "correct": p["correct"]} for p in g.players.values()), key=lambda x: -x["score"])
 
 
 def lobby_msg():
-    return {"type": "lobby", "players": [g.players[pid]["name"] for pid in active()]}
+    return {"type": "lobby", "players": [public(g.players[pid]) for pid in active()]}
+
+
+def answered_msg():
+    return {"type": "answered", "players": [{**public(g.players[pid]), "done": pid in g.answers}
+                                            for pid in active()]}
+
+
+def unique_name(name, pid):
+    taken, base, k = {p["name"] for q, p in g.players.items() if q != pid}, name, 2
+    while name in taken:
+        name, k = f"{base} {k}", k + 1
+    return name
+
+
+def look(m, pid):
+    """Avatar and colour from a join message. Without a valid colour the player keeps theirs or gets a free one."""
+    avatar = m.get("avatar") if FEATURE_AVATARS and m.get("avatar") in AVATARS else ""
+    color = m.get("color") if FEATURE_AVATARS and m.get("color") in COLORS else None
+    if color is None and pid in g.players:
+        color = g.players[pid]["color"]
+    if color is None:
+        used = {p["color"] for p in g.players.values() if p["ws"]}
+        color = next((c for c in COLORS if c not in used), random.choice(COLORS))
+    return {"avatar": avatar, "color": color}
 
 
 async def wait_for(seconds, done):
@@ -177,6 +211,13 @@ async def reveal(q):
             d = 500 + int(500 * max(0.0, 1 - t / Q_SECONDS))
             deltas[pid] = d
             g.players[pid]["score"] += d
+    for pid, p in g.players.items():
+        if pid in deltas:
+            p["streak"] += 1
+            p["correct"] += 1
+            p["best"] = max(p["best"], p["streak"])
+        else:
+            p["streak"] = 0
     counts = [sum(1 for a, _ in g.answers.values() if a == i) for i in range(4)]
     sc = board()
     base = {"type": "reveal", "correct": q["answer"], "explanation": q["explanation"],
@@ -188,7 +229,7 @@ async def reveal(q):
         p = g.players[pid]
         await send(p["ws"], {**base, "you": {
             "answered": pid in g.answers, "correct": pid in deltas, "delta": deltas.get(pid, 0),
-            "score": p["score"], "rank": names.index(p["name"]) + 1}})
+            "score": p["score"], "rank": names.index(p["name"]) + 1, "streak": p["streak"]}})
 
 
 async def run_quiz(total):
@@ -215,6 +256,7 @@ async def run_quiz(total):
         g.answers, g.q, g.t0, g.accepting = {}, q, time.monotonic(), "answer"
         await bc({"type": "question", "n": i + 1, "total": n_total, "category": q["cat"],
                   "text": q["q"], "options": q["options"], "seconds": Q_SECONDS})
+        await to_hosts(answered_msg())
         await wait_for(Q_SECONDS, lambda: all(pid in g.answers for pid in active()))
         await reveal(q)
         await asyncio.sleep(6)
@@ -241,6 +283,8 @@ async def ws_endpoint(ws: WebSocket, role: str = "player"):
     if is_host:
         g.hosts.add(ws)
         await send(ws, g.last or lobby_msg())
+        if g.accepting == "answer":
+            await send(ws, answered_msg())
     idle = lambda: g.task is None or g.task.done()
     try:
         while True:
@@ -254,7 +298,7 @@ async def ws_endpoint(ws: WebSocket, role: str = "player"):
                         total = 10
                     total = total if total in COUNTS else 10
                     for p in g.players.values():
-                        p["score"] = 0
+                        p.update(score=0, streak=0, best=0, correct=0)
                     g.task = asyncio.create_task(run_safe(total))
                 elif t == "lobby" and idle():
                     g.phase = "lobby"
@@ -263,14 +307,15 @@ async def ws_endpoint(ws: WebSocket, role: str = "player"):
             if t == "join":
                 pid = str(m.get("pid", ""))[:40]
                 name = (m.get("name") or "Player").strip()[:16] or "Player"
-                if pid in g.players:
-                    g.players[pid]["ws"] = ws
+                p = g.players.get(pid)
+                if p is None:
+                    p = g.players[pid] = {"name": unique_name(name, pid), "score": 0, "streak": 0,
+                                          "best": 0, "correct": 0, "ws": ws, **look(m, pid)}
                 else:
-                    taken, base, k = {p["name"] for p in g.players.values()}, name, 2
-                    while name in taken:
-                        name, k = f"{base} {k}", k + 1
-                    g.players[pid] = {"name": name, "score": 0, "ws": ws}
-                await send(ws, {"type": "joined", "name": g.players[pid]["name"]})
+                    p["ws"] = ws
+                    if g.phase != "running":  # name and look can change between games
+                        p.update(name=unique_name(name, pid), **look(m, pid))
+                await send(ws, {"type": "joined", **public(p)})
                 if g.phase == "lobby" or g.last is None:
                     await bc(lobby_msg())
                 else:
@@ -285,7 +330,7 @@ async def ws_endpoint(ws: WebSocket, role: str = "player"):
                                     "submitted": len(g.cats), "players": len(active())})
             elif pid in g.players and t == "answer" and g.accepting == "answer" and pid not in g.answers:
                 g.answers[pid] = (int(m["i"]), time.monotonic() - g.t0)
-                await to_hosts({"type": "answered", "n": len(g.answers), "total": len(active())})
+                await to_hosts(answered_msg())
     except (WebSocketDisconnect, RuntimeError, json.JSONDecodeError):
         pass
     finally:
@@ -311,7 +356,9 @@ def lan_ip():
 def info():
     url = PUBLIC_URL or f"http://{lan_ip()}:{PORT}/"
     lang = "pl" if LANGUAGE.strip().lower() in ("polish", "polski", "pl") else "en"
-    return {"url": url, "qr": segno.make(url).svg_data_uri(scale=8), "lang": lang}
+    return {"url": url, "qr": segno.make(url).svg_data_uri(scale=8), "lang": lang,
+            "avatars": list(AVATARS) if FEATURE_AVATARS else [], "colors": list(COLORS),
+            "players": lobby_msg()["players"]}
 
 
 @app.middleware("http")

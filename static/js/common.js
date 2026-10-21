@@ -3,6 +3,7 @@
 /** @typedef {import('./types').Info} Info */
 /** @typedef {import('./types').ServerMsg} ServerMsg */
 /** @typedef {import('./types').ClientMsg} ClientMsg */
+/** @typedef {import('./types').Player} Player */
 
 /** @param {unknown} s */
 export const esc = s => String(s).replace(/[&<>"']/g, c => /** @type {Record<string, string>} */ ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -34,7 +35,9 @@ const STRINGS = {
     correct: 'Correct!', wrong: 'Not this time', slow: 'Too slow', points_delta: '+{n} points',
     answer_was: 'Answer: {a}', score: 'Score', rank: 'Rank', round_over: 'Round over',
     look_big: 'Look at the big screen.', game_over: 'Game over', you_are: 'You finished #{rank} with {score} points',
-    hold_on: 'Hold on',
+    hold_on: 'Hold on', edit_look: 'Change name or look', edit_name: 'Change name', color: 'Colour', avatar: 'Avatar', initial: 'Initial',
+    save: 'Save', in_a_row: '{n} in a row', wins: '{name} wins!',
+    win_sub: '{score} points · {correct} of {total} correct · longest streak {best}',
   },
   pl: {
     connecting: 'Łączenie…', reconnecting: 'Ponowne łączenie…', fullscreen: 'Pełny ekran',
@@ -58,7 +61,9 @@ const STRINGS = {
     correct: 'Dobrze!', wrong: 'Tym razem nie', slow: 'Za wolno', points_delta: '+{n} pkt',
     answer_was: 'Odpowiedź: {a}', score: 'Wynik', rank: 'Miejsce', round_over: 'Koniec rundy',
     look_big: 'Spójrz na duży ekran.', game_over: 'Koniec gry', you_are: 'Zajmujesz {rank}. miejsce, {score} pkt',
-    hold_on: 'Chwileczkę',
+    hold_on: 'Chwileczkę', edit_look: 'Zmień imię lub wygląd', edit_name: 'Zmień imię', color: 'Kolor', avatar: 'Awatar', initial: 'Inicjał',
+    save: 'Zapisz', in_a_row: '{n} z rzędu', wins: '{name} wygrywa!',
+    win_sub: '{score} pkt · poprawne: {correct} z {total} · najdłuższa seria: {best}',
   },
 };
 /** @type {'en' | 'pl'} */
@@ -89,13 +94,11 @@ const SHAPES = [
 /** @param {number} i @param {number} size */
 export const shape = (i, size) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">${SHAPES[i]}</svg>`;
 
-// ---- Player avatars: initial on a colour derived from the name ----
-const AVATAR_COLORS = ['#FF8A80', '#5EEAD4', '#FFD166', '#93A8FF', '#F0A6FF', '#A7F3A0', '#FFB38A', '#7DD3FC'];
-/** @param {string} name @param {number} size */
-export function avatar(name, size) {
-  let h = 0;
-  for (const ch of name) h = (h * 31 + (ch.codePointAt(0) ?? 0)) >>> 0;
-  return `<div class="avatar" style="width:${size}px;height:${size}px;font-size:${Math.round(size * .46)}px;background:${AVATAR_COLORS[h % AVATAR_COLORS.length]}">${esc([...name][0] || '?')}</div>`;
+// ---- Player avatars: emoji (or the name's initial) on the player's colour ----
+/** @param {Player} p @param {number} size @param {string} [extra] additional classes */
+export function avatar(p, size, extra = '') {
+  const scale = p.avatar ? .6 : .46;
+  return `<div class="avatar ${extra}" style="width:${size}px;height:${size}px;font-size:${Math.round(size * scale)}px;background:${esc(p.color)}">${esc(p.avatar || [...p.name][0] || '?')}</div>`;
 }
 
 // ---- Countdown: paints every [data-t] (seconds), [data-bar] (width) and [data-ring] (SVG stroke) ----

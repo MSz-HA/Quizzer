@@ -55,9 +55,7 @@ h1,h2,p{margin:0}
 .agrid .ans{height:150px;border-radius:28px;box-shadow:0 10px 0 var(--e);padding:0 36px;gap:28px;font-size:54px;font-weight:600;line-height:1.1}
 .agrid .ans.long{font-size:42px}
 .badge{width:76px;height:76px;border-radius:20px;background:rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.dots{display:flex;gap:12px;flex-wrap:wrap}
-.dots i{width:28px;height:28px;border-radius:50%;background:var(--card)}
-.dots i.on{background:var(--mint)}
+.who{display:flex;gap:12px;flex-wrap:wrap}
 
 /* Reveal */
 .qsmall{font-size:56px;font-weight:600;line-height:1.12}
@@ -76,21 +74,42 @@ h1,h2,p{margin:0}
 .explain svg{flex-shrink:0;margin-top:4px}
 .lb{width:560px;flex-shrink:0;display:flex;flex-direction:column;gap:14px}
 .lb h2{font-size:36px;margin-bottom:6px}
-.lbrow{height:88px;border-radius:22px;background:var(--card);display:flex;align-items:center;gap:18px;padding:0 24px;font-size:32px}
+.lbrow{height:88px;flex-shrink:0;border-radius:22px;background:var(--card);display:flex;align-items:center;gap:18px;padding:0 24px;font-size:32px;position:relative}
+.lbrow.move{transition:transform .7s cubic-bezier(.2,.8,.2,1),opacity .5s}
 .lbrow.first{background:var(--gold);color:var(--on-gold)}
 .lbrow .rk{font-weight:700;width:36px}
 .lbrow .nm{flex-grow:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lbrow .dl{font-size:26px;font-weight:600;color:var(--mint)}
+.lbrow .dl{font-size:26px;font-weight:600;color:var(--mint);transition:opacity .3s .5s}
+.lbrow .dl.hide{opacity:0;transition:none}
+.streak{display:inline-flex;align-items:center;gap:2px;font-size:26px;font-weight:700;color:#FF9F43}
+.flame{width:30px;height:30px;fill:#FF9F43}
+/* On the leaderboard the streak is a badge on the avatar's corner */
+.lbrow .av{position:relative;display:flex}
+.lbrow .streak{position:absolute;right:-14px;bottom:-10px;background:#2A1300;color:#FFB15C;border-radius:999px;padding:1px 8px 1px 4px;font-size:20px;box-shadow:0 0 0 3px var(--card)}
+.lbrow .streak .flame{width:20px;height:20px;fill:#FF9F43}
+.first .streak{box-shadow:0 0 0 3px var(--gold)}
 .lbrow .dl.zero{color:#6E74A8}
 .lbrow.first .dl{color:#5C4300}
 .lbrow .sc{font-weight:700;width:120px;text-align:right}
 
-/* Final */
-.final{list-style:none;padding:0;margin:0;width:1100px;display:flex;flex-direction:column;gap:16px}
-.final li{height:76px;border-radius:24px;background:var(--card);box-shadow:0 8px 0 var(--card-edge);display:flex;align-items:center;gap:26px;padding:0 34px;font-size:36px}
-.final li .nm{flex-grow:1;text-align:left;font-weight:600}
-.final li b{width:56px;text-align:left}
-.final .p1,.final .p2,.final .p3{height:100px;font-size:46px}
-.final .p1{background:var(--gold);color:var(--on-gold);box-shadow:0 8px 0 var(--gold-edge)}
-.final .p2{background:#D9DCF2;color:#0B1026;box-shadow:0 8px 0 #8E93BF}
-.final .p3{background:#E8A672;color:#2A1300;box-shadow:0 8px 0 #9C6337}
+/* Final: podium with confetti */
+.fin{position:relative;flex-grow:1;margin-bottom:-64px;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center}
+.fin .huge{font-size:92px}
+.again{position:absolute;top:0;right:0;font-size:28px;height:68px;padding:0 28px;z-index:2}
+.podium{margin-top:auto;display:flex;align-items:flex-end;gap:32px;position:relative}
+.pod{width:320px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.pname{font-size:44px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pscore{font-size:32px;color:var(--muted);display:flex;align-items:center;gap:12px}
+.pod .block{width:100%;border-radius:28px 28px 0 0;display:flex;justify-content:center;padding-top:18px;font-size:110px;font-weight:700;transform-origin:bottom;animation:rise .8s cubic-bezier(.2,.8,.2,1) both}
+.pod.p1 .block{height:380px;background:var(--gold);color:var(--on-gold);animation-delay:.9s}
+.pod.p2 .block{height:280px;background:#D9DCF2;color:#0B1026;animation-delay:.5s}
+.pod.p3 .block{height:200px;background:#E8A672;color:#2A1300;animation-delay:.1s}
+.pod.p1 .avatar{animation-delay:1.5s}.pod.p2 .avatar{animation-delay:1.1s}.pod.p3 .avatar{animation-delay:.7s}
+.others{position:absolute;right:0;bottom:64px;width:300px;display:flex;flex-direction:column;gap:12px}
+.others .lbrow{height:68px;font-size:26px;gap:12px;padding:0 18px}
+.others .rk{width:28px}.others .sc{width:auto}
+.confetti{position:absolute;inset:-56px -96px 0;overflow:hidden;pointer-events:none}
+.confetti i{position:absolute;top:-40px;width:14px;height:24px;border-radius:3px;animation:fall linear both}
+@keyframes fall{to{top:110%;transform:rotate(900deg)}}
+@keyframes rise{from{transform:scaleY(0)}}
+@media (prefers-reduced-motion:reduce){.confetti{display:none}.pod .block,.lbrow.move{animation:none;transition:none}}

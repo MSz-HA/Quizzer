@@ -57,3 +57,17 @@ input:focus{border-color:var(--gold)}
 .stats div+div{align-items:flex-end}
 .stats small{font-size:15px;opacity:.85}
 .stats b{font-size:30px}
+
+/* Join form: avatar preview, colour swatches and avatar grid */
+.who-am-i{display:flex;flex-direction:column;align-items:center;gap:12px}
+.pickrow{display:flex;flex-direction:column;gap:8px}
+.lbl{font-size:17px;color:var(--muted)}
+.swatches{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:8px}
+.sw{aspect-ratio:1;border-radius:12px;border:3px solid transparent;position:relative}
+.sw.on{border-color:var(--fg);transform:scale(1.08)}
+.sw.taken:not(.on)::after{content:"";position:absolute;inset:30%;border-radius:50%;background:rgba(11,16,38,.55)}
+.faces{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.face{aspect-ratio:1;border-radius:14px;background:var(--card);color:var(--fg);font-size:26px;font-weight:700;line-height:1;
+  display:flex;align-items:center;justify-content:center;border:3px solid transparent}
+.face.on{border-color:var(--gold);background:var(--line)}
+@media (orientation:landscape){.swatches{grid-template-columns:repeat(8,44px)}.faces{grid-template-columns:repeat(9,44px)}}
