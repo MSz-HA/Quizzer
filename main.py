@@ -310,7 +310,17 @@ def lan_ip():
 @app.get("/api/info")
 def info():
     url = PUBLIC_URL or f"http://{lan_ip()}:{PORT}/"
-    return {"url": url, "qr": segno.make(url).svg_data_uri(scale=8)}
+    lang = "pl" if LANGUAGE.strip().lower() in ("polish", "polski", "pl") else "en"
+    return {"url": url, "qr": segno.make(url).svg_data_uri(scale=8), "lang": lang}
+
+
+@app.middleware("http")
+async def revalidate_pages(request, call_next):
+    """Make browsers check for updated HTML/CSS/JS instead of running stale cached copies."""
+    response = await call_next(request)
+    if request.url.path in ("/", "/host") or request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 @app.get("/")

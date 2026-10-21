@@ -1,0 +1,47 @@
+/* Shared look for the TV (host.html) and phone (player.html) screens */
+@font-face{font-family:Fredoka;font-weight:400 700;font-display:swap;src:url(/static/fonts/fredoka-latin.woff2) format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:Fredoka;font-weight:400 700;font-display:swap;src:url(/static/fonts/fredoka-latin-ext.woff2) format('woff2');
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+1E00-1E9F,U+2020,U+20A0-20AB,U+2C60-2C7F,U+A720-A7FF}
+
+:root{
+  --bg:#0B1026;--card:#1A2056;--card-edge:#0A0E2E;--line:#3A418C;
+  --fg:#F4F1FF;--muted:#A9AEDB;--gold:#FFC83D;--gold-edge:#B8861A;--on-gold:#241600;--mint:#5EEAD4;
+  --stage:radial-gradient(ellipse 70% 60% at 50% -10%,#2E3488 0%,#141A4D 50%,#0B1026 100%);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--fg);font-family:Fredoka,"Trebuchet MS",system-ui,sans-serif}
+button{font:inherit;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:disabled{opacity:.4;cursor:not-allowed}
+
+/* Chunky 3D buttons */
+.btn{font-weight:700;border-radius:20px;background:var(--gold);color:var(--on-gold);box-shadow:0 6px 0 var(--gold-edge);transition:transform .08s,box-shadow .08s}
+.btn:active:not(:disabled){transform:translateY(4px);box-shadow:0 2px 0 var(--gold-edge)}
+.btn.alt{background:var(--card);color:var(--fg);box-shadow:0 6px 0 var(--card-edge)}
+
+/* Answer colours: differ in lightness too, and always paired with a shape */
+.a0{--c:#D13438;--e:#7E1D20;--t:#fff}
+.a1{--c:#0E8074;--e:#064A43;--t:#fff}
+.a2{--c:#F5B300;--e:#996F00;--t:#241600}
+.a3{--c:#3451C7;--e:#1D2E7A;--t:#fff}
+.ans{background:var(--c);color:var(--t);box-shadow:0 8px 0 var(--e);display:flex;align-items:center;text-align:left}
+.ans svg{fill:var(--t);flex-shrink:0}
+
+.avatar{border-radius:50%;color:#0B1026;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0}
+.chip{background:var(--card);border-radius:999px;box-shadow:0 6px 0 var(--card-edge)}
+.bar{border-radius:999px;background:var(--card);overflow:hidden}
+.bar>i{display:block;height:100%;border-radius:999px;background:var(--mint);transition:width .25s linear}
+.ring circle{fill:none;stroke-linecap:round}
+.ring .track{stroke:var(--card)}
+.ring .left{stroke:var(--mint);transition:stroke-dashoffset .25s linear}
+
+/* Shown while the websocket is reconnecting */
+#conn{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:50;background:#B42D31;color:#fff;font-weight:600;
+  padding:8px 18px;border-radius:999px;font-size:16px;box-shadow:0 4px 12px rgba(0,0,0,.4)}
+#conn[hidden]{display:none}
+
+@keyframes pop{from{transform:scale(.92);opacity:0}to{transform:none;opacity:1}}
+.pop{animation:pop .25s ease-out both}
+@media (prefers-reduced-motion:reduce){.pop{animation:none}.bar>i,.ring .left{transition:none}}

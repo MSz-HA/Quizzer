@@ -37,3 +37,24 @@ docker compose up -d --build
 `hostname -I`), otherwise the QR code points at the container's internal IP. The server restarts
 automatically; game state is in memory, so a restart ends the current game.
 Logs: `docker compose logs -f`. Update after code changes: `docker compose up -d --build`.
+
+## Frontend
+
+Plain HTML/CSS/JS, no build step. Edit and reload.
+
+```
+static/
+  host.html, player.html        # TV screen (/host) and phone controller (/)
+  css/theme.css                 # shared colours, font, buttons, answer tiles
+  css/host.css, css/player.css
+  js/common.js                  # UI strings (pl/en), timer, websocket, fullscreen helpers
+  js/host.js, js/player.js      # ES modules, one per page
+  js/types.d.ts                 # websocket message types (for type checking only)
+```
+
+The JS is type-checked from JSDoc comments (`// @ts-check`). VS Code shows errors as you type.
+To check from the command line (needs Node.js; nothing is installed into the project):
+
+```bash
+npx -p typescript tsc -p jsconfig.json
+```
