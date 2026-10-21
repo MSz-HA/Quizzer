@@ -1,0 +1,30 @@
+{
+  "Geografia świata": [
+    {"q": "Jaka jest stolica Australii?", "options": ["Sydney", "Canberra", "Melbourne", "Perth"], "answer": 1, "explanation": "Canberrę wybrano na stolicę jako kompromis między Sydney a Melbourne."},
+    {"q": "Która rzeka jest najdłuższa w Europie?", "options": ["Dunaj", "Ren", "Wołga", "Wisła"], "answer": 2, "explanation": "Wołga ma około 3530 km długości."},
+    {"q": "W którym państwie leży pustynia Atakama?", "options": ["Chile", "Peru", "Meksyk", "Argentyna"], "answer": 0, "explanation": "Atakama w północnym Chile to jedno z najsuchszych miejsc na Ziemi."},
+    {"q": "Ile państw graniczy z Polską?", "options": ["5", "6", "7", "8"], "answer": 2, "explanation": "Niemcy, Czechy, Słowacja, Ukraina, Białoruś, Litwa i Rosja."},
+    {"q": "Jaki jest najwyższy szczyt Afryki?", "options": ["Mount Kenya", "Kilimandżaro", "Ruwenzori", "Atlas"], "answer": 1, "explanation": "Kilimandżaro w Tanzanii ma 5895 m n.p.m."}
+  ],
+  "Kosmos i astronomia": [
+    {"q": "Która planeta jest najbliżej Słońca?", "options": ["Wenus", "Mars", "Merkury", "Ziemia"], "answer": 2, "explanation": "Merkury krąży średnio 58 mln km od Słońca."},
+    {"q": "Jak nazywał się pierwszy człowiek w kosmosie?", "options": ["Neil Armstrong", "Jurij Gagarin", "Buzz Aldrin", "Mirosław Hermaszewski"], "answer": 1, "explanation": "Gagarin poleciał w kosmos 12 kwietnia 1961 roku."},
+    {"q": "Ile mniej więcej trwa podróż światła ze Słońca do Ziemi?", "options": ["8 sekund", "8 minut", "8 godzin", "8 dni"], "answer": 1, "explanation": "Światło pokonuje tę odległość w około 8 minut i 20 sekund."},
+    {"q": "Która planeta ma najwięcej znanych księżyców?", "options": ["Jowisz", "Saturn", "Uran", "Neptun"], "answer": 1, "explanation": "Saturn ma ponad 140 potwierdzonych księżyców."},
+    {"q": "Jak nazywa się nasza galaktyka?", "options": ["Andromeda", "Droga Mleczna", "Wir", "Sombrero"], "answer": 1, "explanation": "Układ Słoneczny leży w jednym z ramion Drogi Mlecznej."}
+  ],
+  "Jedzenie i gotowanie": [
+    {"q": "Z jakiego kraju pochodzi danie paella?", "options": ["Włochy", "Portugalia", "Hiszpania", "Meksyk"], "answer": 2, "explanation": "Paella wywodzi się z regionu Walencji."},
+    {"q": "Jaki ser jest tradycyjnie używany do pizzy margherity?", "options": ["Cheddar", "Mozzarella", "Gouda", "Feta"], "answer": 1, "explanation": "Mozzarella, pomidory i bazylia oddają kolory flagi Włoch."},
+    {"q": "Z czego robi się guacamole?", "options": ["Z awokado", "Z cukinii", "Z groszku", "Z ogórka"], "answer": 0, "explanation": "Podstawą guacamole jest rozgniecione awokado."},
+    {"q": "Która przyprawa jest najdroższa na świecie na wagę?", "options": ["Wanilia", "Szafran", "Kardamon", "Cynamon"], "answer": 1, "explanation": "Szafran zbiera się ręcznie z kwiatów krokusa."},
+    {"q": "W jakiej temperaturze woda wrze na poziomie morza?", "options": ["90°C", "100°C", "110°C", "120°C"], "answer": 1, "explanation": "Przy ciśnieniu 1 atmosfery woda wrze w 100°C."}
+  ],
+  "Gry wideo": [
+    {"q": "Jak ma na imię brat Mario?", "options": ["Wario", "Luigi", "Toad", "Yoshi"], "answer": 1, "explanation": "Luigi zadebiutował w grze Mario Bros. z 1983 roku."},
+    {"q": "Które polskie studio stworzyło serię Wiedźmin?", "options": ["Techland", "CD Projekt Red", "People Can Fly", "11 bit studios"], "answer": 1, "explanation": "Pierwszy Wiedźmin od CD Projekt Red ukazał się w 2007 roku."},
+    {"q": "W jakiej grze buduje się z bloków w świecie złożonym z sześcianów?", "options": ["Terraria", "Roblox", "Minecraft", "Fortnite"], "answer": 2, "explanation": "Minecraft jest jedną z najlepiej sprzedających się gier w historii."},
+    {"q": "Jak nazywa się główny bohater serii The Legend of Zelda?", "options": ["Zelda", "Link", "Ganon", "Epona"], "answer": 1, "explanation": "Zelda to księżniczka, a grywalnym bohaterem jest Link."},
+    {"q": "Która firma produkuje konsolę PlayStation?", "options": ["Nintendo", "Microsoft", "Sony", "Sega"], "answer": 2, "explanation": "Pierwsze PlayStation Sony wydało w 1994 roku."}
+  ]
+}

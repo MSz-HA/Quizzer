@@ -1,20 +1,24 @@
-"""Quiz Party - FastAPI server. Run: python main.py  (needs ANTHROPIC_API_KEY)"""
-import asyncio, json, os, random, socket, time
+"""Quiz Party - FastAPI server. Run: python main.py  (needs ANTHROPIC_API_KEY, e.g. in .env)
+Dev mode: python main.py --dev  (questions from mock_questions.json, no API calls, auto-reload)"""
+import asyncio, json, os, random, socket, sys, time
 from pathlib import Path
 
 import segno
 import uvicorn
 from anthropic import AsyncAnthropic
+from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+load_dotenv()
 MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-5-5")
 LANGUAGE = os.getenv("QUIZ_LANGUAGE", "Polish")
 PORT = int(os.getenv("PORT", "8000"))
 Q_SECONDS = int(os.getenv("QUESTION_SECONDS", "60"))
 CATEGORY_SECONDS = int(os.getenv("CATEGORY_SECONDS", "120"))
 PUBLIC_URL = os.getenv("PUBLIC_URL")  # override if running in Docker
+DEV = os.getenv("QUIZ_DEV") == "1"  # set by --dev; uses mock questions instead of Claude
 COUNTS = (5, 10, 20, 50, 100)
 BATCH = 10  # max questions per Claude request
 
@@ -27,9 +31,11 @@ CATEGORIES = [
     "Famous scandals", "Architecture", "Board games and toys",
 ]
 
-client = AsyncAnthropic()  # reads ANTHROPIC_API_KEY
+client = None if DEV else AsyncAnthropic()  # reads ANTHROPIC_API_KEY
 app = FastAPI()
-STATIC = Path(__file__).resolve().parent / "static"
+ROOT = Path(__file__).resolve().parent
+STATIC = ROOT / "static"
+MOCK = ROOT / "mock_questions.json"
 
 
 class State:
@@ -99,6 +105,11 @@ async def gen_batch(cat, n, part, parts):
         model=MODEL, max_tokens=4000, messages=[{"role": "user", "content": prompt}])
     text = "".join(b.text for b in r.content if getattr(b, "type", "") == "text")
     data = json.loads(text[text.index("["): text.rindex("]") + 1])
+    return clean(data, cat)[:n]
+
+
+def clean(data, cat):
+    """Validate questions in the prompt's JSON format and shuffle their options."""
     out = []
     for d in data:
         try:
@@ -110,7 +121,15 @@ async def gen_batch(cat, n, part, parts):
                         "explanation": str(d.get("explanation", "")), "cat": cat})
         except (KeyError, IndexError, ValueError, AssertionError, TypeError):
             continue
-    return out[:n]
+    return out
+
+
+def mock_questions(total):
+    """Dev mode: pick questions from mock_questions.json ({category: [question, ...]})."""
+    data = json.loads(MOCK.read_text(encoding="utf-8"))
+    out = [q for cat, qs in data.items() for q in clean(qs, cat)]
+    random.shuffle(out)
+    return out[:total]
 
 
 def plan(cats, total):
@@ -123,6 +142,8 @@ def plan(cats, total):
 
 
 async def generate_all(cats, total):
+    if DEV:
+        return mock_questions(total)
     jobs = []
     for cat, n in plan(cats, total):
         parts = -(-n // BATCH)
@@ -307,4 +328,8 @@ app.mount("/static", StaticFiles(directory=STATIC), name="static")
 if __name__ == "__main__":
     if not (STATIC / "host.html").exists():
         raise SystemExit(f"Missing {STATIC}\\host.html - put host.html and player.html in a folder named static next to main.py")
-    uvicorn.run(app, host="0.0.0.0", port=PORT)
+    if "--dev" in sys.argv:
+        os.environ["QUIZ_DEV"] = "1"  # env var so the reloader's worker process sees it too
+        uvicorn.run("main:app", host="0.0.0.0", port=PORT, reload=True, app_dir=str(ROOT))
+    else:
+        uvicorn.run(app, host="0.0.0.0", port=PORT)
