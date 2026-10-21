@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quiz Party</title>
+<style>
+:root{--bg:#1b1233;--fg:#fff6e5;--card:#2c2050;--gold:#ffc83d;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;min-height:100dvh;background:var(--bg);color:var(--fg);font-family:"Trebuchet MS","Segoe UI",sans-serif;display:flex;flex-direction:column;justify-content:center;padding:1rem;text-align:center}
+h1{font-size:1.8rem;margin:.3em 0}
+p{font-size:1.15rem}
+input,button{font:inherit;font-size:1.3rem;border-radius:12px;border:0;padding:.9rem 1rem;width:100%;margin:.4rem 0}
+input{background:var(--card);color:var(--fg);text-align:center}
+button{font-weight:700;color:#fff;cursor:pointer}
+button.go{background:var(--gold);color:#2a1a00}
+.opts{display:grid;gap:.7rem}
+.opts button{min-height:20vh;font-size:1.3rem;display:flex;align-items:center;justify-content:center;gap:.7rem}
+.vote button{background:var(--card);min-height:0}
+.big{font-size:3.5rem;margin:0}
+.gold{color:var(--gold)}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script>
+const app = document.getElementById('app');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const COL = ['#e63946', '#1f9d8f', '#c98f00', '#4361ee'], SYM = ['▲', '◆', '●', '■'];
+const pid = localStorage.pid || (localStorage.pid = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now()));
+let ws, name = localStorage.name || '';
+
+const send = o => ws && ws.readyState === 1 && ws.send(JSON.stringify(o));
+const msg = (title, text = '') => app.innerHTML = `<h1>${title}</h1><p>${text}</p>`;
+
+function joinForm() {
+  app.innerHTML = `<h1>Join the game</h1>
+    <input id="n" maxlength="16" placeholder="Your name" value="${esc(name)}" autocomplete="off">
+    <button class="go" id="j">Join</button>`;
+  document.getElementById('j').onclick = () => {
+    name = document.getElementById('n').value.trim();
+    if (!name) return;
+    localStorage.name = name;
+    connect();
+  };
+}
+
+function choose(kind, i) {
+  send({ type: kind, i });
+  msg(kind === 'vote' ? 'Vote sent' : 'Answer locked in', 'Waiting for the others…');
+}
+window.choose = choose;
+
+function catForm(status) {
+  app.innerHTML = `<h1>Suggest a category</h1>
+    <p>Anything you like, for example "90s cartoons" or "Polish cities".</p>
+    <input id="c" maxlength="40" placeholder="Your category" autocomplete="off">
+    <button class="go" onclick="sendCat(false)">Send</button>
+    <button style="background:var(--card)" onclick="sendCat(true)">Surprise me</button>
+    <p>${status}</p>`;
+}
+window.sendCat = surprise => {
+  const text = (document.getElementById('c').value || '').trim();
+  if (surprise || text) send({ type: 'category', text, surprise });
+};
+
+function on(m) {
+  switch (m.type) {
+    case 'joined': name = m.name; break;
+    case 'lobby': msg(`You're in, ${esc(name)}`, 'Waiting for the host to start.'); break;
+    case 'categories':
+      catForm('');
+      break;
+    case 'category_ok':
+      catForm(`Sent: <b class="gold">${esc(m.text)}</b>. You can change it until time runs out.`);
+      break;
+    case 'generating': msg('Writing questions…', esc(m.category)); break;
+    case 'question':
+      app.innerHTML = `<p>${m.n} of ${m.total}</p><div class="opts">${m.options.map((o, i) => `<button style="background:${COL[i]}" onclick="choose('answer',${i})"><span>${SYM[i]}</span><span>${esc(o)}</span></button>`).join('')}</div>`;
+      break;
+    case 'reveal': {
+      const y = m.you;
+      if (!y) { msg('Round over', 'Look at the big screen.'); break; }
+      app.innerHTML = y.correct
+        ? `<p class="big">✔</p><h1>Correct, +${y.delta}</h1><p>${y.score} points, rank ${y.rank}</p>`
+        : `<p class="big">✘</p><h1>${y.answered ? 'Wrong' : 'Too slow'}</h1><p>${y.score} points, rank ${y.rank}</p>`;
+      break;
+    }
+    case 'scores': {
+      const i = m.scores.findIndex(s => s.name === name);
+      msg(m.final ? 'Game over' : 'Round complete',
+        i < 0 ? '' : `You are <span class="gold">#${i + 1}</span> with ${m.scores[i].score} points.`);
+      break;
+    }
+    case 'error': msg('Hold on', esc(m.message)); break;
+  }
+}
+
+function connect() {
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws?role=player');
+  ws.onopen = () => send({ type: 'join', pid, name });
+  ws.onmessage = e => on(JSON.parse(e.data));
+  ws.onclose = () => setTimeout(connect, 1500);
+}
+
+if (name) { msg('Reconnecting…'); connect(); } else joinForm();
+</script>
+</body>
+</html>
