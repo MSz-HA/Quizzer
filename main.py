@@ -15,13 +15,22 @@ load_dotenv()
 MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-5-5")
 LANGUAGE = os.getenv("QUIZ_LANGUAGE", "Polish")
 PORT = int(os.getenv("PORT", "8000"))
-Q_SECONDS = int(os.getenv("QUESTION_SECONDS", "60"))
-CATEGORY_SECONDS = int(os.getenv("CATEGORY_SECONDS", "120"))
+Q_SECONDS = int(os.getenv("QUESTION_SECONDS", "60"))  # default; the host can change it on the setup screen
+CATEGORY_SECONDS = int(os.getenv("CATEGORY_SECONDS", "120"))  # default, same
 PUBLIC_URL = os.getenv("PUBLIC_URL")  # override if running in Docker
 DEV = os.getenv("QUIZ_DEV") == "1"  # set by --dev; uses mock questions instead of Claude
-FEATURE_AVATARS = os.getenv("FEATURE_AVATARS", "1") == "1"  # players pick a colour and emoji avatar
-COUNTS = (5, 10, 20, 50, 100)
+FEATURE_AVATARS = os.getenv("FEATURE_AVATARS", "1") == "1"  # default: players pick a colour and emoji avatar
 BATCH = 10  # max questions per Claude request
+SPIN_SECONDS = 5  # category draw animation; questions are already being generated meanwhile
+ROUND_PAUSE = 8  # standings shown between rounds
+
+# Values the host can pick on the TV's setup screen (the .env defaults are always allowed too)
+OPTIONS = {
+    "rounds": [1, 2, 3, 4, 5],
+    "per_round": [3, 5, 10, 15, 20],
+    "category_seconds": sorted({30, 60, 90, 120, CATEGORY_SECONDS}),
+    "question_seconds": sorted({10, 15, 20, 30, 45, 60, Q_SECONDS}),
+}
 
 # Used by the "Surprise me" button and when nobody submits a category
 CATEGORIES = [
@@ -44,9 +53,12 @@ MOCK = ROOT / "mock_questions.json"
 
 
 class State:
-    players = {}      # pid -> {"name", "score", "ws"}
+    players = {}      # pid -> {"name", "score", "ws", "avatar", "color", "streak", "best", "correct"}
     hosts = set()
-    phase = "lobby"   # lobby | running | final | error
+    phase = "setup"   # setup | lobby | running | final | error
+    settings = {"rounds": 3, "per_round": 5, "category_seconds": CATEGORY_SECONDS,
+                "question_seconds": Q_SECONDS, "avatars": FEATURE_AVATARS}  # in memory only
+    used = []         # categories already played this game
     accepting = None  # None | "category" | "answer"
     last = None       # last broadcast, replayed to late joiners
     task = None
@@ -82,7 +94,7 @@ async def to_hosts(msg):
 
 def public(p):
     """What other screens may know about a player."""
-    return {"name": p["name"], "avatar": p["avatar"], "color": p["color"]}
+    return {"name": p["name"], "avatar": p["avatar"] if g.settings["avatars"] else "", "color": p["color"]}
 
 
 def board():
@@ -91,7 +103,27 @@ def board():
 
 
 def lobby_msg():
-    return {"type": "lobby", "players": [public(g.players[pid]) for pid in active()]}
+    return {"type": "lobby", "players": [public(g.players[pid]) for pid in active()], "settings": g.settings}
+
+
+def setup_msg():
+    return {"type": "setup", "settings": g.settings, "options": OPTIONS, "players": len(active())}
+
+
+async def show_lobby():
+    """Players always see the lobby; the TV shows the setup screen until the host opens the lobby."""
+    if g.phase == "setup":
+        g.last = None
+        await asyncio.gather(*(send(g.players[pid]["ws"], lobby_msg()) for pid in active()))
+        await to_hosts(setup_msg())
+    else:
+        await bc(lobby_msg())
+
+
+def update_settings(new):
+    for k, v in new.items():
+        if (k in OPTIONS and type(v) is int and v in OPTIONS[k]) or (k == "avatars" and type(v) is bool):
+            g.settings[k] = v
 
 
 def answered_msg():
@@ -108,8 +140,9 @@ def unique_name(name, pid):
 
 def look(m, pid):
     """Avatar and colour from a join message. Without a valid colour the player keeps theirs or gets a free one."""
-    avatar = m.get("avatar") if FEATURE_AVATARS and m.get("avatar") in AVATARS else ""
-    color = m.get("color") if FEATURE_AVATARS and m.get("color") in COLORS else None
+    on = g.settings["avatars"]
+    avatar = m.get("avatar") if on and m.get("avatar") in AVATARS else ""
+    color = m.get("color") if on and m.get("color") in COLORS else None
     if color is None and pid in g.players:
         color = g.players[pid]["color"]
     if color is None:
@@ -158,12 +191,20 @@ def clean(data, cat):
     return out
 
 
-def mock_questions(total):
-    """Dev mode: pick questions from mock_questions.json ({category: [question, ...]})."""
+def mock_questions(cats, total):
+    """Dev mode: questions from mock_questions.json ({category: [question, ...]}), from `cats` if it has them."""
     data = json.loads(MOCK.read_text(encoding="utf-8"))
-    out = [q for cat, qs in data.items() for q in clean(qs, cat)]
+    out = ([q for cat, qs in data.items() if cat in cats for q in clean(qs, cat)]
+           or [q for cat, qs in data.items() for q in clean(qs, cat)])
     random.shuffle(out)
     return out[:total]
+
+
+def fresh_topics(k):
+    """Up to k random built-in topics not played yet this game (the mock categories in dev mode)."""
+    pool = list(json.loads(MOCK.read_text(encoding="utf-8"))) if DEV else CATEGORIES
+    unused = [c for c in pool if c not in g.used] or pool
+    return random.sample(unused, min(k, len(unused)))
 
 
 def plan(cats, total):
@@ -177,7 +218,7 @@ def plan(cats, total):
 
 async def generate_all(cats, total):
     if DEV:
-        return mock_questions(total)
+        return mock_questions(cats, total)
     jobs = []
     for cat, n in plan(cats, total):
         parts = -(-n // BATCH)
@@ -203,12 +244,12 @@ async def generate_all(cats, total):
     return out[:total]
 
 
-async def reveal(q):
+async def reveal(q, seconds):
     g.accepting = None
     deltas = {}
     for pid, (idx, t) in g.answers.items():
         if idx == q["answer"]:
-            d = 500 + int(500 * max(0.0, 1 - t / Q_SECONDS))
+            d = 500 + int(500 * max(0.0, 1 - t / seconds))
             deltas[pid] = d
             g.players[pid]["score"] += d
     for pid, p in g.players.items():
@@ -232,41 +273,60 @@ async def reveal(q):
             "score": p["score"], "rank": names.index(p["name"]) + 1, "streak": p["streak"]}})
 
 
-async def run_quiz(total):
-    g.phase = "running"
-    g.cats = {}
-    g.accepting = "category"
-    await bc({"type": "categories", "seconds": CATEGORY_SECONDS, "total": total,
-              "players": len(active())})
-    await wait_for(CATEGORY_SECONDS, lambda: all(pid in g.cats for pid in active()))
-    g.accepting = None
-    seen = {}
-    for t in g.cats.values():
-        seen.setdefault(t.casefold(), t)
-    cats = list(seen.values()) or random.sample(CATEGORIES, 3)
-    await bc({"type": "generating", "categories": cats, "total": total})
-    questions = await generate_all(cats, total)
-    if not questions:
-        g.phase = "error"
-        await bc({"type": "error", "message": "Claude did not return any usable questions. "
-                  "Check the server console and your API key, then try again."})
-        return
-    n_total = len(questions)
-    for i, q in enumerate(questions):
-        g.answers, g.q, g.t0, g.accepting = {}, q, time.monotonic(), "answer"
-        await bc({"type": "question", "n": i + 1, "total": n_total, "category": q["cat"],
-                  "text": q["q"], "options": q["options"], "seconds": Q_SECONDS})
-        await to_hosts(answered_msg())
-        await wait_for(Q_SECONDS, lambda: all(pid in g.answers for pid in active()))
-        await reveal(q)
-        await asyncio.sleep(6)
+async def run_game():
+    s = dict(g.settings)  # this game's settings
+    g.phase, g.used = "running", []
+    asked = 0
+    for r in range(1, s["rounds"] + 1):
+        rnd = {"round": r, "rounds": s["rounds"]}
+        # 1. Everyone suggests a category
+        g.cats, g.accepting = {}, "category"
+        await bc({"type": "categories", **rnd, "seconds": s["category_seconds"], "total": s["per_round"],
+                  "players": len(active()), "used": g.used})
+        await wait_for(s["category_seconds"], lambda: all(pid in g.cats for pid in active()))
+        g.accepting = None
+        # 2. Draw one suggestion at random (skipping topics already played) and start generating right away;
+        #    the TV spins a carousel over the suggestions while Claude works
+        played = {u.casefold() for u in g.used}
+        seen = {}
+        for text in g.cats.values():
+            if text.casefold() not in played:
+                seen.setdefault(text.casefold(), text)
+        options = list(seen.values()) or fresh_topics(3)
+        cat = random.choice(options)
+        g.used.append(cat)
+        gen = asyncio.create_task(generate_all([cat], s["per_round"]))
+        await bc({"type": "pick", **rnd, "options": options, "chosen": cat, "seconds": SPIN_SECONDS,
+                  "total": s["per_round"]})
+        await asyncio.sleep(SPIN_SECONDS)
+        if not gen.done():
+            await bc({"type": "generating", **rnd, "categories": [cat], "total": s["per_round"]})
+        questions = await gen
+        if not questions:
+            g.phase = "error"
+            await bc({"type": "error", "message": "Claude did not return any usable questions. "
+                      "Check the server console and your API key, then try again."})
+            return
+        # 3. Play the round
+        for i, q in enumerate(questions):
+            g.answers, g.q, g.t0, g.accepting = {}, q, time.monotonic(), "answer"
+            await bc({"type": "question", **rnd, "n": i + 1, "total": len(questions), "category": q["cat"],
+                      "text": q["q"], "options": q["options"], "seconds": s["question_seconds"]})
+            await to_hosts(answered_msg())
+            await wait_for(s["question_seconds"], lambda: all(pid in g.answers for pid in active()))
+            await reveal(q, s["question_seconds"])
+            asked += 1
+            await asyncio.sleep(6)
+        if r < s["rounds"]:
+            await bc({"type": "round_end", **rnd, "scores": board()})
+            await asyncio.sleep(ROUND_PAUSE)
     g.phase = "final"
-    await bc({"type": "scores", "scores": board(), "final": True})
+    await bc({"type": "scores", "scores": board(), "final": True, "questions": asked})
 
 
-async def run_safe(total):
+async def run_safe():
     try:
-        await run_quiz(total)
+        await run_game()
     except Exception as e:
         print("Quiz crashed:", repr(e))
         g.phase = "error"
@@ -282,7 +342,7 @@ async def ws_endpoint(ws: WebSocket, role: str = "player"):
     is_host = role == "host"
     if is_host:
         g.hosts.add(ws)
-        await send(ws, g.last or lobby_msg())
+        await send(ws, setup_msg() if g.phase == "setup" else g.last or lobby_msg())
         if g.accepting == "answer":
             await send(ws, answered_msg())
     idle = lambda: g.task is None or g.task.done()
@@ -291,18 +351,19 @@ async def ws_endpoint(ws: WebSocket, role: str = "player"):
             m = json.loads(await ws.receive_text())
             t = m.get("type")
             if is_host:
-                if t == "start" and idle() and active():
-                    try:
-                        total = int(m.get("count", 10))
-                    except (TypeError, ValueError):
-                        total = 10
-                    total = total if total in COUNTS else 10
+                if t == "start" and idle() and g.phase == "lobby" and active():
                     for p in g.players.values():
                         p.update(score=0, streak=0, best=0, correct=0)
-                    g.task = asyncio.create_task(run_safe(total))
-                elif t == "lobby" and idle():
+                    g.task = asyncio.create_task(run_safe())
+                elif t == "settings" and idle() and g.phase == "setup":
+                    update_settings(m.get("settings") or {})
+                    await show_lobby()
+                elif t == "open" and idle() and g.phase == "setup":
                     g.phase = "lobby"
                     await bc(lobby_msg())
+                elif t == "setup" and idle():
+                    g.phase = "setup"
+                    await show_lobby()
                 continue
             if t == "join":
                 pid = str(m.get("pid", ""))[:40]
@@ -316,12 +377,12 @@ async def ws_endpoint(ws: WebSocket, role: str = "player"):
                     if g.phase != "running":  # name and look can change between games
                         p.update(name=unique_name(name, pid), **look(m, pid))
                 await send(ws, {"type": "joined", **public(p)})
-                if g.phase == "lobby" or g.last is None:
-                    await bc(lobby_msg())
+                if g.phase in ("setup", "lobby") or g.last is None:
+                    await show_lobby()
                 else:
                     await send(ws, g.last)
             elif pid in g.players and t == "category" and g.accepting == "category":
-                text = random.choice(CATEGORIES) if m.get("surprise") else str(m.get("text", ""))
+                text = fresh_topics(1)[0] if m.get("surprise") else str(m.get("text", ""))
                 text = " ".join(text.split())[:40]
                 if text:
                     g.cats[pid] = text
@@ -337,8 +398,8 @@ async def ws_endpoint(ws: WebSocket, role: str = "player"):
         g.hosts.discard(ws)
         if pid in g.players and g.players[pid]["ws"] is ws:
             g.players[pid]["ws"] = None
-            if g.phase == "lobby":
-                await bc(lobby_msg())
+            if g.phase in ("setup", "lobby"):
+                await show_lobby()
 
 
 def lan_ip():
@@ -357,8 +418,8 @@ def info():
     url = PUBLIC_URL or f"http://{lan_ip()}:{PORT}/"
     lang = "pl" if LANGUAGE.strip().lower() in ("polish", "polski", "pl") else "en"
     return {"url": url, "qr": segno.make(url).svg_data_uri(scale=8), "lang": lang,
-            "avatars": list(AVATARS) if FEATURE_AVATARS else [], "colors": list(COLORS),
-            "players": lobby_msg()["players"]}
+            "avatars": list(AVATARS), "colors": list(COLORS), "players": lobby_msg()["players"],
+            "settings": g.settings}
 
 
 @app.middleware("http")

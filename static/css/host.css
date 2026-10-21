@@ -84,7 +84,7 @@ h1,h2,p{margin:0}
 .streak{display:inline-flex;align-items:center;gap:2px;font-size:26px;font-weight:700;color:#FF9F43}
 .flame{width:30px;height:30px;fill:#FF9F43}
 /* On the leaderboard the streak is a badge on the avatar's corner */
-.lbrow .av{position:relative;display:flex}
+.lbrow .av{position:relative;display:flex;margin-right:10px}
 .lbrow .streak{position:absolute;right:-14px;bottom:-10px;background:#2A1300;color:#FFB15C;border-radius:999px;padding:1px 8px 1px 4px;font-size:20px;box-shadow:0 0 0 3px var(--card)}
 .lbrow .streak .flame{width:20px;height:20px;fill:#FF9F43}
 .first .streak{box-shadow:0 0 0 3px var(--gold)}
@@ -113,3 +113,30 @@ h1,h2,p{margin:0}
 @keyframes fall{to{top:110%;transform:rotate(900deg)}}
 @keyframes rise{from{transform:scaleY(0)}}
 @media (prefers-reduced-motion:reduce){.confetti{display:none}.pod .block,.lbrow.move{animation:none;transition:none}}
+
+/* Setup ("New game") */
+.setup{flex-grow:1;display:flex;gap:56px;min-height:0}
+.settings{flex-grow:1;background:var(--card);border-radius:36px;box-shadow:0 10px 0 var(--card-edge);padding:36px 48px;display:flex;flex-direction:column;gap:20px}
+.settings h2{font-size:56px}
+.srow{display:flex;flex-direction:column;gap:12px}
+.slabel{font-size:30px;color:var(--muted)}
+.settings .count{width:auto;min-width:120px;padding:0 24px;height:76px;background:var(--bg);box-shadow:0 6px 0 var(--card-edge)}
+.settings .count.on{background:var(--fg);color:var(--bg);box-shadow:0 6px 0 var(--muted)}
+.summary{width:520px;display:flex;flex-direction:column;gap:16px;align-items:stretch;text-align:center;padding-top:24px}
+.bignum{font-size:150px;font-weight:700;line-height:1;color:var(--gold)}
+
+/* Category draw carousel */
+.reel{position:relative;width:100%;height:300px;margin-top:20px;overflow:hidden;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent);mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent)}
+.strip{position:absolute;left:0;top:55px;display:flex;gap:28px;will-change:transform}
+.rcard{width:480px;height:190px;flex-shrink:0;border-radius:32px;background:var(--c);color:var(--t);box-shadow:0 10px 0 var(--e);
+  display:flex;align-items:center;justify-content:center;text-align:center;padding:0 28px;font-size:44px;font-weight:700;line-height:1.1;transition:transform .3s,outline-color .3s}
+.rcard.won{transform:scale(1.08);outline:8px solid var(--fg);outline-offset:6px}
+.marker::before,.marker::after{content:"";position:absolute;left:50%;margin-left:-18px;border:18px solid transparent}
+.marker::before{top:0;border-top:26px solid var(--fg)}
+.marker::after{bottom:0;border-bottom:26px solid var(--fg)}
+.marker{position:absolute;inset:0;pointer-events:none}
+
+/* Standings between rounds */
+.standings{width:1000px;display:flex;flex-direction:column;gap:14px;text-align:left}
+.standings .lbrow{height:92px;font-size:36px}

@@ -11,7 +11,8 @@ cp .env.example .env   # then put your ANTHROPIC_API_KEY in .env
 python main.py
 ```
 
-- Host screen (TV): http://localhost:8000/host
+- Host screen (TV): http://localhost:8000/host. It opens on a setup screen (rounds, questions per round,
+  timers, avatars); **Open lobby** then shows the QR code.
 - Players: scan the QR code on the host screen (phones must be on the same network)
 
 ## Dev mode

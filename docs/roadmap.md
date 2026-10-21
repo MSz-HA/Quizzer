@@ -63,6 +63,11 @@ Each feature has an on/off switch (`.env` flag with a lobby toggle where it make
   - The `question` message sent per player includes their active effects, so `bc` needs a per-player variant like `reveal()` already does.
 - TV shows "Ania froze Kamil!" banners.
 
+## Phase 3: Game setup and rounds (done)
+- The TV opens on a **setup screen**: rounds (1–5), questions per round, category time, answer time, avatars on/off. Settings live in memory (`g.settings` in `main.py`); `.env` gives the starting values. **Open lobby** shows the QR code; **Play again** returns to setup with the same values. Phones can join while the host is still on setup.
+- **Rounds:** each round, everyone suggests a category. The server draws one at random (skipping categories already played this game) and starts generating straight away. Meanwhile the TV spins a carousel over the suggestions that lands on the drawn one, and phones show a slot-style draw. Standings are shown between rounds.
+- Protocol: `setup`, `pick` and `round_end` messages are new; `categories`, `question` and `generating` carry `round`/`rounds`. The TV sends `settings`, `open`, `setup` and `start` (see `static/js/types.d.ts`).
+
 ## Verification
 - **Phase 0:** review the mockups and agree on the look before coding.
 - **Each phase:** run `python main.py --dev` with `QUESTION_SECONDS=10` and `CATEGORY_SECONDS=10` in `.env`, open `/host` in a desktop browser and `/` in 2–3 browser profiles.

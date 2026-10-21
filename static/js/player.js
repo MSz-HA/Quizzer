@@ -7,6 +7,8 @@ import { $, esc, t, num, loadInfo, shape, avatar, startTimer, stopTimer, paintTi
 /** @typedef {import('./types').RevealMsg} RevealMsg */
 /** @typedef {import('./types').Player} Player */
 /** @typedef {import('./types').Info} Info */
+/** @typedef {import('./types').PickMsg} PickMsg */
+/** @typedef {import('./types').RoundInfo} RoundInfo */
 
 const app = /** @type {HTMLElement} */ ($('app'));
 const fs = /** @type {HTMLElement} */ ($('fs'));
@@ -24,6 +26,8 @@ let info = {};
 /** @type {Player[]} */
 let lobbyPlayers = [];
 let editing = false, connected = false;
+/** Host setting: show colour/avatar pickers (updated from every lobby message) */
+let avatarsOn = true;
 /** @type {QuestionMsg | null} */
 let cur = null;
 
@@ -89,7 +93,7 @@ document.addEventListener('visibilitychange', () => { if (connected) keepAwake()
 /** Name (and, with avatars on, colour + avatar) form. Used to join and to change identity between games. */
 function joinForm() {
   editing = true;
-  const colors = info.colors || [], avatars = info.avatars || [];
+  const colors = info.colors || [], avatars = avatarsOn ? info.avatars || [] : [];
   const others = lobbyPlayers.filter(p => p.name !== me.name), taken = new Set(others.map(p => p.color));
   if (!draft.color || !colors.includes(draft.color)) draft.color = pickFree(colors, taken);
   const pickers = avatars.length ? `
@@ -112,7 +116,7 @@ function join() {
   const field = input('n');
   const v = field ? field.value.trim() : '';
   if (!v) return field?.focus();
-  me = { name: v, avatar: info.avatars?.length ? draft.avatar : '', color: draft.color };
+  me = { name: v, avatar: avatarsOn ? draft.avatar : '', color: draft.color };
   Object.assign(localStorage, me);
   editing = false;
   goFullscreen();
@@ -131,17 +135,44 @@ function start() {
   connected = true;
   connect('player', on, () => send(joinMsg()));
 }
-const editBtn = () => `<button class="btn alt" data-action="edit">${t(info.avatars?.length ? 'edit_look' : 'edit_name')}</button>`;
+const editBtn = () => `<button class="btn alt" data-action="edit">${t(avatarsOn ? 'edit_look' : 'edit_name')}</button>`;
 /** Waiting in the lobby, or after a game: show who you are and let you change it */
 function lobbyScreen(title = t('youre_in', { name: esc(me.name) }), text = `${t('wait_host')}<br>${t('n_players', { n: lobbyPlayers.length })}`) {
   show(`<div class="center mid">${avatar(me, 120, 'pop')}<h1 class="title">${title}</h1>
     <p class="muted" style="font-size:19px">${text}</p>${editBtn()}</div>`);
 }
 
+/** "Round 2/3" in multi-round games @param {RoundInfo | null} m */
+const roundLabel = m => m && m.rounds > 1 ? t('round_short', { n: m.round, total: m.rounds }) : '';
+/** @type {RoundInfo | null} */
+let round = null;
+
+/** Category draw: the suggestions flick past, slowing down until the chosen one stays. @param {PickMsg} m */
+function pickScreen(m) {
+  show(`<div class="center mid"><p class="muted" style="font-size:18px">${t('round_of', { n: m.round, total: m.rounds })}</p>
+    <h1 class="title">${t('drawing')}</h1><div class="slot"><span id="slot"></span></div><p class="muted" id="slot-sub"></p></div>`);
+  const slot = /** @type {HTMLElement} */ ($('slot')), end = Date.now() + (m.seconds - 1.2) * 1000;
+  let i = Math.floor(Math.random() * m.options.length), delay = 60;
+  const tick = () => {
+    if (!slot.isConnected) return;  // another screen took over
+    if (Date.now() + delay >= end) {
+      slot.textContent = m.chosen;
+      slot.classList.add('won');
+      const sub = $('slot-sub');
+      if (sub) sub.textContent = t('writing_n', { n: m.total });
+      return;
+    }
+    slot.textContent = m.options[i++ % m.options.length];
+    delay *= 1.12;
+    setTimeout(tick, delay);
+  };
+  tick();
+}
+
 /** @param {string} status */
 function catForm(status) {
   const prevText = input('c')?.value ?? '';
-  show(`${hdr(esc(me.name))}
+  show(`${hdr(esc(me.name), roundLabel(round))}
     <div class="center">
       <div style="display:flex;flex-direction:column;gap:8px"><h1 class="title">${t('suggest')}</h1>
         <p class="muted" style="font-size:18px;line-height:1.35">${t('suggest_hint')}</p></div>
@@ -160,7 +191,7 @@ function sendCat(surprise) {
 
 /** @param {QuestionMsg} m */
 function questionScreen(m) {
-  show(`${hdr(`${m.n} / ${m.total}`, t('look_tv'))}
+  show(`${hdr(`${m.n} / ${m.total}`, roundLabel(m) || t('look_tv'))}
     <div class="opts">${m.options.map((o, i) => `<button class="ans a${i}" data-action="answer" data-i="${i}">${shape(i, 34)}<span>${esc(o)}</span></button>`).join('')}</div>`, { plain: true });
 }
 /** @param {QuestionMsg} q @param {number} i */
@@ -198,6 +229,7 @@ function result(m) {
 /** @param {ServerMsg} m */
 function on(m) {
   localStorage.seen = Date.now();
+  if (m.type === 'lobby') avatarsOn = m.settings.avatars;
   if (editing && m.type === 'lobby') { lobbyPlayers = m.players; return; }  // don't clobber the form
   if (m.type !== 'joined') editing = false;
   switch (m.type) {
@@ -210,7 +242,14 @@ function on(m) {
       lobbyPlayers = m.players;
       lobbyScreen();
       break;
-    case 'categories': startTimer(m.seconds); catForm(''); break;
+    case 'categories': round = m; startTimer(m.seconds); catForm(''); break;
+    case 'pick': stopTimer(); pickScreen(m); break;
+    case 'round_end': {
+      const i = m.scores.findIndex(s => s.name === me.name);
+      show(`<div class="center mid">${avatar(me, 120, 'pop')}<h1 class="title">${t('round_done', { n: m.round })}</h1>
+        <p class="muted" style="font-size:19px">${i < 0 ? '' : `${t('standing', { rank: i + 1, score: num(m.scores[i].score) })}<br>`}${t('next_round', { n: m.round + 1, total: m.rounds })}</p></div>`);
+      break;
+    }
     case 'category_ok': catForm(`${t('cat_sent', { text: `<b>${esc(m.text)}</b>` })}<br>${t('cat_change')}`); break;
     case 'generating':
       stopTimer();
@@ -263,6 +302,7 @@ app.addEventListener('keydown', e => {
 loadInfo().then(i => {
   info = i;
   lobbyPlayers = i.players || [];
+  avatarsOn = i.settings?.avatars ?? true;
   const avatars = i.avatars || [];
   if (!me.name && avatars.length) draft.avatar = pickFree(avatars, new Set(lobbyPlayers.map(p => p.avatar)));  // first visit
   updateFs();
