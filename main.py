@@ -63,6 +63,7 @@ ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
 MOCK = ROOT / "mock_questions.json"
 AWARD_TEMPLATES = ROOT / "awards.json"  # {lang: {award: {"icon", "title", "lines"}}}
+DATA = ROOT / "data"  # every question Claude generates, kept across restarts
 
 
 class State:
@@ -217,7 +218,9 @@ async def gen_batch(cat, n, part, parts):
     data = await ask_list(prompt, obj(q=STR, options={"type": "array", "items": STR},
                                       answer={"type": "integer", "enum": [0, 1, 2, 3]}, explanation=STR),
                           "medium")
-    return clean(data, cat)[:n]
+    questions = clean(data, cat)[:n]
+    save(questions)
+    return questions
 
 
 def clean(data, cat):
@@ -234,6 +237,24 @@ def clean(data, cat):
         except (KeyError, IndexError, ValueError, AssertionError, TypeError):
             continue
     return out
+
+
+def save(questions):
+    """Add questions to this language's JSON file in data/ (same format as mock_questions.json), skipping ones
+    already saved. Never breaks the game on errors."""
+    try:
+        path = DATA / f"questions_{LANGUAGE.strip().lower()}.json"
+        data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+        for q in questions:
+            saved = data.setdefault(q["cat"], [])
+            if all(s["q"] != q["q"] for s in saved):
+                saved.append({k: q[k] for k in ("q", "options", "answer", "explanation")})
+        DATA.mkdir(exist_ok=True)
+        tmp = path.with_suffix(".tmp")  # write then rename, so a crash can't leave a half-written file
+        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+        tmp.replace(path)
+    except (OSError, ValueError) as e:
+        print("Saving questions failed:", repr(e))
 
 
 def mock_questions(cats, total):
