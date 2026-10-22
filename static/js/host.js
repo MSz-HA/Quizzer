@@ -164,8 +164,6 @@ function question(m) {
   const size = m.text.length > 90 ? 's' : m.text.length > 60 ? 'm' : '';
   app.innerHTML = `<div class="top">${qPills(m)}${ring(132)}</div>
     <div class="qtext"><h1 class="${size}">${esc(m.text)}</h1></div>
-    <div class="agrid">${m.options.map((o, i) => `<div class="ans a${i} pop${o.length > 26 ? ' long' : ''}" style="animation-delay:${i * 80}ms">
-      <span class="badge">${shape(i, 44)}</span><span>${esc(o)}</span></div>`).join('')}</div>
     <div class="row"><div class="who" id="who"></div><span class="muted" id="ans"></span></div>`;
   startTimer(m.seconds);
 }
