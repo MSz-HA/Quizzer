@@ -11,6 +11,7 @@ import { $, esc, t, num, loadInfo, shape, avatar, startTimer, stopTimer, send, c
 /** @typedef {import('./types').Score} Score */
 /** @typedef {import('./types').Settings} Settings */
 /** @typedef {import('./types').SetupMsg} SetupMsg */
+/** @typedef {import('./types').VoteMsg} VoteMsg */
 /** @typedef {import('./types').PickMsg} PickMsg */
 /** @typedef {import('./types').RoundEndMsg} RoundEndMsg */
 /** @typedef {import('./types').RoundInfo} RoundInfo */
@@ -95,11 +96,11 @@ function setup(m) {
   /** @param {string} key @param {string} label @param {{ v: string, label: string, on: boolean }[]} choices */
   const row = (key, label, choices) => `<div class="srow"><span class="slabel">${label}</span><div class="row">${choices.map(c =>
     `<button class="count${c.on ? ' on' : ''}" data-action="set" data-k="${key}" data-v="${c.v}" aria-pressed="${c.on}">${c.label}</button>`).join('')}</div></div>`;
-  /** @param {'rounds' | 'per_round' | 'category_seconds' | 'question_seconds' | 'draw_size'} key @param {(v: number) => string} fmt */
+  /** @param {'rounds' | 'per_round' | 'suggest_seconds' | 'category_seconds' | 'question_seconds'} key @param {(v: number) => string} fmt */
   const nums = (key, fmt) => o[key].map(v => ({ v: String(v), label: fmt(v), on: v === st[key] }));
   const total = st.rounds * st.per_round;
-  // Rough upper bound: category pick + draw/generation per round, answer time + reveal per question, standings between rounds
-  const minutes = Math.ceil((st.rounds * (st.category_seconds + 20) + total * (st.question_seconds + 7) + (st.rounds - 1) * 8) / 60);
+  // Rough upper bound: suggestions + tidying once, vote + generation per round, answer time + reveal per question, standings between rounds
+  const minutes = Math.ceil((st.suggest_seconds + 10 + st.rounds * (st.category_seconds + 20) + total * (st.question_seconds + 7) + (st.rounds - 1) * 8) / 60);
   app.innerHTML = `<div class="top" style="min-height:0">
       <div class="brand"><div class="logo">Q</div>Quizzer</div>${fsBtn()}</div>
     <div class="setup">
@@ -107,9 +108,9 @@ function setup(m) {
         <h2>${t('new_game')}</h2>
         ${row('rounds', t('s_rounds'), nums('rounds', String))}
         ${row('per_round', t('s_per_round'), nums('per_round', String))}
+        ${row('suggest_seconds', t('s_suggest_time'), nums('suggest_seconds', secs))}
         ${row('category_seconds', t('s_cat_time'), nums('category_seconds', secs))}
         ${row('question_seconds', t('s_q_time'), nums('question_seconds', secs))}
-        ${row('draw_size', t('s_draw'), nums('draw_size', String))}
         ${row('avatars', t('s_avatars'), [{ v: 'true', label: t('on'), on: st.avatars }, { v: 'false', label: t('off'), on: !st.avatars }])}
         ${row('ai_awards', t('s_awards'), [{ v: 'false', label: t('aw_templates'), on: !st.ai_awards }, { v: 'true', label: t('aw_claude'), on: st.ai_awards }])}
       </section>
@@ -126,34 +127,23 @@ function setup(m) {
   if (list) list.scrollTop = scroll;  // re-rendered on every change; keep the host's place in the list
 }
 
-/** Category draw: a carousel of the suggestions that slows down and stops on the chosen one. @param {PickMsg} m */
-function spin(m) {
-  const CARD = 480, STEP = CARD + 28, WIDTH = 1728; // card width + gap; #app's inner width
-  /** @type {string[]} */
-  const strip = [];
-  while (strip.length < 24) strip.push(...[...m.options].sort(() => Math.random() - .5));
-  const target = strip.length;
-  strip.push(m.chosen, ...m.options, ...m.options, ...m.options);
-  strip.length = target + 4;  // the chosen card plus a few after it, so the reel never looks empty
-  const at = (/** @type {number} */ i, jitter = 0) => `translateX(${WIDTH / 2 - CARD / 2 - i * STEP + jitter}px)`;
-  app.innerHTML = `<div class="top"><span class="chip pill">${t('round_of', { n: m.round, total: m.rounds })}</span></div>
-    <div class="col center" style="justify-content:flex-start;padding-top:40px">
-      <h1 class="huge" id="spin-title">${t('drawing')}</h1>
-      <div class="reel"><div class="strip" id="strip" style="transform:${at(0)}">${strip.map((c, i) =>
-        `<div class="rcard a${i % 4}${i === target ? ' target' : ''}">${esc(c)}</div>`).join('')}</div><div class="marker"></div></div>
-      <p class="muted big" id="spin-sub"></p></div>`;
-  const el = /** @type {HTMLElement} */ ($('strip'));
-  const ms = Math.max(1000, (m.seconds - 1.2) * 1000);
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    el.style.transition = `transform ${ms}ms cubic-bezier(.1,.7,.15,1)`;
-    el.style.transform = at(target, (Math.random() - .5) * (CARD - 120));  // land somewhere on the card, not dead centre
-  }));
-  setTimeout(() => {
-    if (!el.isConnected) return;
-    el.querySelector('.target')?.classList.add('won');
-    setText('spin-title', m.chosen);
-    setText('spin-sub', t('writing_n', { n: m.total }));
-  }, ms + 100);
+/** "Round 2 of 3 · 5 questions" pill above the vote @param {VoteMsg | PickMsg} m */
+const votePill = m => `<span class="chip pill">${m.rounds > 1 ? `${t('round_of', { n: m.round, total: m.rounds })} · ` : ''}${t('n_questions', { n: m.total })}</span>`;
+
+/** Category vote in the answer colours and shapes the phones use. The result shows each choice's votes
+ * and highlights the winner. @param {VoteMsg | PickMsg} m */
+function voteBoard(m) {
+  const res = 'counts' in m ? m : null;
+  const tie = !!res && res.counts.filter(n => n === Math.max(...res.counts)).length > 1;
+  const cards = m.options.map((o, i) => `<div class="ans a${i} ${!res ? 'pop' : o === res.chosen ? 'won' : 'dim'}${o.length > 26 ? ' long' : ''}" style="animation-delay:${i * 80}ms">
+    <span class="badge">${shape(i, 44)}</span><span class="grow">${esc(o)}</span>${res ? `<b class="vcount">${res.counts[i]}</b>` : ''}</div>`).join('');
+  app.innerHTML = `<div class="top">${votePill(m)}${res ? '' : ring(132)}</div>
+    <div class="col center" style="justify-content:flex-start;padding-top:20px;gap:48px">
+      <h1 class="huge${res ? ' pop' : ''}">${res ? esc(res.chosen) : t('vote_tv')}</h1>
+      <div class="agrid vote">${cards}</div>
+      ${res ? `<p class="muted big">${tie ? `${t('tie')} · ` : ''}${t('writing_n', { n: m.total })}</p>`
+        : `<div class="row" style="gap:20px"><div class="bar wide"><i id="vbar" style="width:0"></i></div>
+          <b class="big" id="vn">${t('voted_n', { n: 0, total: 'players' in m ? m.players : 0 })}</b></div>`}</div>`;
 }
 
 /** Standings between rounds. @param {RoundEndMsg} m */
@@ -263,19 +253,25 @@ function on(m) {
     case 'setup': stopTimer(); settings = m.settings; setup(m); break;
     case 'lobby': stopTimer(); players = m.players; settings = m.settings; lobby(); break;
     case 'categories':
-      if (m.round === 1) prev = [];
-      app.innerHTML = `<div class="top"><span class="chip pill">${m.rounds > 1 ? `${t('round_of', { n: m.round, total: m.rounds })} · ` : ''}${t('n_questions', { n: m.total })}</span>${ring(140)}</div>
+      prev = [];
+      app.innerHTML = `<div class="top"><span class="chip pill">${settings ? t('game_summary', { rounds: settings.rounds, per: settings.per_round }) : ''}</span>${ring(140)}</div>
         <div class="col center" style="justify-content:flex-start;padding-top:40px">
           <h1 class="huge">${t('pick_cat')}</h1>
           <p class="muted big" id="csub">${t('drawn')}</p>
           <div class="row" style="gap:20px"><div class="bar wide"><i id="cbar" style="width:0"></i></div>
             <b class="big" id="cn">${t('sent_n', { n: 0, total: m.players })}</b></div>
-          <div class="chips" id="cl"></div>
-          ${m.used.length ? `<p class="muted">${t('played', { list: m.used.map(esc).join(', ') })}</p>` : ''}</div>`;
+          <div class="chips" id="cl"></div></div>`;
       startTimer(m.seconds);
       break;
     case 'preparing': stopTimer(); setText('csub', t('preparing')); break;
-    case 'pick': stopTimer(); spin(m); break;
+    case 'vote': voteBoard(m); startTimer(m.seconds); break;
+    case 'votes': {
+      setText('vn', t('voted_n', { n: m.voted, total: m.players }));
+      const bar = $('vbar');
+      if (bar) bar.style.width = m.voted / Math.max(1, m.players) * 100 + '%';
+      break;
+    }
+    case 'pick': stopTimer(); voteBoard(m); break;
     case 'cats': {
       setHTML('cl', chips(m.list));
       setText('cn', t('sent_n', { n: m.submitted, total: m.players }));

@@ -142,17 +142,11 @@ h1,h2,p{margin:0}
 .summary{width:520px;display:flex;flex-direction:column;gap:16px;align-items:stretch;text-align:center;padding-top:24px}
 .bignum{font-size:150px;font-weight:700;line-height:1;color:var(--gold)}
 
-/* Category draw carousel */
-.reel{position:relative;width:100%;height:300px;margin-top:20px;overflow:hidden;
-  -webkit-mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent);mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent)}
-.strip{position:absolute;left:0;top:55px;display:flex;gap:28px;will-change:transform}
-.rcard{width:480px;height:190px;flex-shrink:0;border-radius:32px;background:var(--c);color:var(--t);box-shadow:0 10px 0 var(--e);
-  display:flex;align-items:center;justify-content:center;text-align:center;padding:0 28px;font-size:44px;font-weight:700;line-height:1.1;transition:transform .3s,outline-color .3s}
-.rcard.won{transform:scale(1.08);outline:8px solid var(--fg);outline-offset:6px}
-.marker::before,.marker::after{content:"";position:absolute;left:50%;margin-left:-18px;border:18px solid transparent}
-.marker::before{top:0;border-top:26px solid var(--fg)}
-.marker::after{bottom:0;border-bottom:26px solid var(--fg)}
-.marker{position:absolute;inset:0;pointer-events:none}
+/* Category vote */
+.agrid.vote{width:100%}
+.vote .ans.dim{opacity:.3}
+.vote .ans.won{outline:6px solid var(--fg);outline-offset:6px}
+.vcount{font-size:64px}
 
 /* Standings between rounds */
 .standings{width:1000px;display:flex;flex-direction:column;gap:14px;text-align:left}

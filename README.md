@@ -25,8 +25,8 @@ python main.py --dev
 ```
 
 Uses questions from `mock_questions.json` instead of calling the Claude API (no API key needed)
-and auto-reloads the server when you edit code. Tip: set `QUESTION_SECONDS=10` and
-`CATEGORY_SECONDS=10` in `.env` for faster test rounds. To test with several players on one
+and auto-reloads the server when you edit code. Tip: set `QUESTION_SECONDS=10`,
+`SUGGEST_SECONDS=30` and `CATEGORY_SECONDS=5` in `.env` for faster test rounds. To test with several players on one
 machine, open http://localhost:8000/ in different browsers or browser profiles
 (each one keeps its own player id).
 

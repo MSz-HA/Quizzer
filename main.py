@@ -13,28 +13,29 @@ from fastapi.staticfiles import StaticFiles
 
 load_dotenv()
 MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-5-5")
-TIDY_MODEL = "claude-haiku-5-5"  # tidying category names is simple; a fast model shortens the wait before the draw
 LANGUAGE = os.getenv("QUIZ_LANGUAGE", "Polish")
 LANG = "pl" if LANGUAGE.strip().lower() in ("polish", "polski", "pl") else "en"  # UI strings and built-in topics
 PORT = int(os.getenv("PORT", "8000"))
 Q_SECONDS = int(os.getenv("QUESTION_SECONDS", "60"))  # default; the host can change it on the setup screen
-CATEGORY_SECONDS = int(os.getenv("CATEGORY_SECONDS", "120"))  # default, same
+SUGGEST_SECONDS = int(os.getenv("SUGGEST_SECONDS", "90"))  # default, same; suggesting categories before round 1
+CATEGORY_SECONDS = int(os.getenv("CATEGORY_SECONDS", "15"))  # default, same; voting on a category each round
 PUBLIC_URL = os.getenv("PUBLIC_URL")  # override if running in Docker
 DEV = os.getenv("QUIZ_DEV") == "1"  # set by --dev; uses mock questions instead of Claude
 FEATURE_AVATARS = os.getenv("FEATURE_AVATARS", "1") == "1"  # default: players pick a colour and emoji avatar
 BATCH = 10  # max questions per Claude request
-SPIN_SECONDS = 5  # category draw animation; questions are already being generated meanwhile
+CHOICES = 4  # categories to vote on each round
+RESULT_SECONDS = 4  # vote result on screen; questions are already being generated meanwhile
 
 # Values the host can pick on the TV's setup screen (the .env defaults are always allowed too)
 OPTIONS = {
     "rounds": [1, 2, 3, 4, 5],
     "per_round": [3, 5, 10, 15, 20],
-    "category_seconds": sorted({30, 60, 90, 120, CATEGORY_SECONDS}),
+    "suggest_seconds": sorted({30, 60, 90, 120, SUGGEST_SECONDS}),
+    "category_seconds": sorted({5, 10, 15, 30, CATEGORY_SECONDS}),
     "question_seconds": sorted({10, 15, 20, 30, 45, 60, Q_SECONDS}),
-    "draw_size": [3, 4, 5, 6, 8],  # categories on the draw reel each round
 }
 
-# Fill the draw reel when there are too few suggestions, and feed the "Surprise me" button
+# Fill the vote when there are too few suggestions, and feed the "Surprise me" button
 CATEGORIES = {
     "en": [
         "World geography", "Movies of the 90s", "Space and astronomy", "Food and cooking",
@@ -68,17 +69,19 @@ class State:
     players = {}      # pid -> {"name", "score", "ws", "avatar", "color", "streak", "best", "correct"}
     hosts = set()
     phase = "setup"   # setup | lobby | running | final | error
-    settings = {"rounds": 3, "per_round": 5, "category_seconds": CATEGORY_SECONDS,
-                "question_seconds": Q_SECONDS, "draw_size": 5, "avatars": FEATURE_AVATARS,
+    settings = {"rounds": 3, "per_round": 5, "suggest_seconds": SUGGEST_SECONDS, "category_seconds": CATEGORY_SECONDS,
+                "question_seconds": Q_SECONDS, "avatars": FEATURE_AVATARS,
                 "ai_awards": False}  # in memory only; ai_awards: Claude writes the end-of-game awards
     used = []         # categories already played this game
     log = []          # one entry per question this game, for the awards: {"cat", "q", "seconds", "res", "ranks"}
-    bank = []         # suggestions that lost a draw; join the built-in topics until the server restarts
-    accepting = None  # None | "category" | "answer" | "continue"
+    bank = []         # earlier suggestions; join the built-in topics until the server restarts
+    accepting = None  # None | "category" | "vote" | "answer" | "continue"
     go = None         # asyncio.Event set when a player holds Continue
     last = None       # last broadcast, replayed to late joiners
     task = None
     cats = {}         # pid -> category text
+    options = []      # categories in this round's vote
+    votes = {}        # pid -> index in options
     answers = {}
     q = None
     t0 = 0.0
@@ -188,11 +191,11 @@ def obj(**props):
 STR = {"type": "string"}
 
 
-async def ask_list(prompt, item, effort, model=MODEL):
+async def ask_list(prompt, item, effort):
     """Claude's answer as a list of `item`s. Structured outputs make the API return JSON matching the schema.
     `effort` (low | medium | high) sets how much Claude thinks first."""
     r = await client.messages.create(
-        model=model, max_tokens=16000, messages=[{"role": "user", "content": prompt}],
+        model=MODEL, max_tokens=16000, messages=[{"role": "user", "content": prompt}],
         output_config={"effort": effort,
                        "format": {"type": "json_schema", "schema": obj(items={"type": "array", "items": item})}})
     if r.stop_reason != "end_turn":  # refusal or max_tokens: the JSON may be cut off or missing
@@ -272,7 +275,7 @@ async def tidy(texts):
             f"Give {len(texts)} names, in the same order."
         )
         try:
-            out = [" ".join(str(n).split())[:40] for n in await ask_list(prompt, STR, "low", TIDY_MODEL)]
+            out = [" ".join(str(n).split())[:40] for n in await ask_list(prompt, STR, "low")]
             if len(out) == len(texts) and all(out):
                 names = out
         except Exception as e:
@@ -472,32 +475,36 @@ async def run_game():
     s = dict(g.settings)  # this game's settings
     g.phase, g.used, g.log = "running", [], []
     asked = 0
+    # 1. Before the first round everyone suggests a category, once per game. Claude tidies them in one call
+    g.cats, g.accepting = {}, "category"
+    await bc({"type": "categories", "seconds": s["suggest_seconds"], "players": len(active())})
+    await wait_for(s["suggest_seconds"], lambda: all(pid in g.cats for pid in active()))
+    g.accepting = None
+    if g.cats and not DEV:
+        await to_hosts({"type": "preparing"})
+    subs = await tidy(list(g.cats.values()))
+    known = {c.casefold() for c in topics()}
+    g.bank += [c for c in subs if c.casefold() not in known]
     for r in range(1, s["rounds"] + 1):
         rnd = {"round": r, "rounds": s["rounds"]}
-        # 1. Everyone suggests a category
-        g.cats, g.accepting = {}, "category"
-        await bc({"type": "categories", **rnd, "seconds": s["category_seconds"], "total": s["per_round"],
-                  "players": len(active()), "used": g.used})
-        await wait_for(s["category_seconds"], lambda: all(pid in g.cats for pid in active()))
-        g.accepting = None
-        # 2. Put up to draw_size suggestions (skipping topics already played) on the reel, fill the rest with
-        #    random topics and draw one. Suggestions that lose go to the bank. Generation starts right away;
-        #    the TV spins a carousel over the options while Claude works
-        if g.cats and not DEV:
-            await to_hosts({"type": "preparing"})
+        # 2. Vote on CHOICES categories: suggestions not played yet, topped up with random topics. Most votes
+        #    wins, ties are drawn at random. Generation starts right away while the TV shows the result
         played = {u.casefold() for u in g.used}
-        subs = [c for c in await tidy(list(g.cats.values())) if c.casefold() not in played]
-        options = random.sample(subs, min(s["draw_size"], len(subs)))
-        weights = [1.8] * len(options) + [1] * (s["draw_size"] - len(options))  # player suggestions win more often
-        options += fresh_topics(s["draw_size"] - len(options), options)
-        cat = random.choices(options, weights[:len(options)])[0]
+        left = [c for c in subs if c.casefold() not in played]
+        options = random.sample(left, min(CHOICES, len(left)))
+        options += fresh_topics(CHOICES - len(options), options)
+        g.options, g.votes, g.accepting = options, {}, "vote"
+        await bc({"type": "vote", **rnd, "options": options, "seconds": s["category_seconds"],
+                  "total": s["per_round"], "players": len(active())})
+        await wait_for(s["category_seconds"], lambda: all(pid in g.votes for pid in active()))
+        g.accepting = None
+        counts = [sum(1 for v in g.votes.values() if v == i) for i in range(len(options))]
+        cat = random.choice([o for o, n in zip(options, counts) if n == max(counts)])
         g.used.append(cat)
-        known = {c.casefold() for c in topics()}
-        g.bank += [c for c in subs if c != cat and c.casefold() not in known]
         gen = asyncio.create_task(generate_all([cat], s["per_round"]))
-        await bc({"type": "pick", **rnd, "options": options, "chosen": cat, "seconds": SPIN_SECONDS,
+        await bc({"type": "pick", **rnd, "options": options, "counts": counts, "chosen": cat,
                   "total": s["per_round"]})
-        await asyncio.sleep(SPIN_SECONDS)
+        await asyncio.sleep(RESULT_SECONDS)
         if not gen.done():
             await bc({"type": "generating", **rnd, "categories": [cat], "total": s["per_round"]})
         questions = await gen
@@ -592,6 +599,11 @@ async def ws_endpoint(ws: WebSocket, role: str = "player"):
                     await send(ws, {"type": "category_ok", "text": text})
                     await to_hosts({"type": "cats", "list": list(g.cats.values()),
                                     "submitted": len(g.cats), "players": len(active())})
+            elif pid in g.players and t == "vote" and g.accepting == "vote":
+                i = m.get("i")
+                if type(i) is int and 0 <= i < len(g.options):
+                    g.votes[pid] = i
+                    await to_hosts({"type": "votes", "voted": len(g.votes), "players": len(active())})
             elif pid in g.players and t == "answer" and g.accepting == "answer" and pid not in g.answers:
                 g.answers[pid] = (int(m["i"]), time.monotonic() - g.t0)
                 await to_hosts(answered_msg())

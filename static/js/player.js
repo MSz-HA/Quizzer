@@ -1,5 +1,5 @@
 // @ts-check
-// Phone controller: join, suggest a category, answer, see the result
+// Phone controller: join, suggest a category, vote, answer, see the result
 import { $, esc, t, num, loadInfo, shape, avatar, startTimer, stopTimer, paintTimer, send, connect, fsSupported, isFullscreen, goFullscreen } from './common.js';
 
 /** @typedef {import('./types').ServerMsg} ServerMsg */
@@ -7,7 +7,7 @@ import { $, esc, t, num, loadInfo, shape, avatar, startTimer, stopTimer, paintTi
 /** @typedef {import('./types').RevealMsg} RevealMsg */
 /** @typedef {import('./types').Player} Player */
 /** @typedef {import('./types').Info} Info */
-/** @typedef {import('./types').PickMsg} PickMsg */
+/** @typedef {import('./types').VoteMsg} VoteMsg */
 /** @typedef {import('./types').RoundInfo} RoundInfo */
 
 const app = /** @type {HTMLElement} */ ($('app'));
@@ -151,35 +151,21 @@ function lobbyScreen(title = t('youre_in', { name: esc(me.name) }), text = `${t(
 
 /** "Round 2/3" in multi-round games @param {RoundInfo | null} m */
 const roundLabel = m => m && m.rounds > 1 ? t('round_short', { n: m.round, total: m.rounds }) : '';
-/** @type {RoundInfo | null} */
-let round = null;
+/** The round's category vote, while it is open @type {VoteMsg | null} */
+let ballot = null;
 
-/** Category draw: the suggestions flick past, slowing down until the chosen one stays. @param {PickMsg} m */
-function pickScreen(m) {
-  show(`<div class="center mid"><p class="muted" style="font-size:18px">${t('round_of', { n: m.round, total: m.rounds })}</p>
-    <h1 class="title">${t('drawing')}</h1><div class="slot"><span id="slot"></span></div><p class="muted" id="slot-sub"></p></div>`);
-  const slot = /** @type {HTMLElement} */ ($('slot')), end = Date.now() + (m.seconds - 1.2) * 1000;
-  let i = Math.floor(Math.random() * m.options.length), delay = 60;
-  const tick = () => {
-    if (!slot.isConnected) return;  // another screen took over
-    if (Date.now() + delay >= end) {
-      slot.textContent = m.chosen;
-      slot.classList.add('won');
-      const sub = $('slot-sub');
-      if (sub) sub.textContent = t('writing_n', { n: m.total });
-      return;
-    }
-    slot.textContent = m.options[i++ % m.options.length];
-    delay *= 1.12;
-    setTimeout(tick, delay);
-  };
-  tick();
+/** Category vote in the TV's colours and shapes; the picked one stays lit and can be changed. @param {VoteMsg} m @param {number} [mine] */
+function voteScreen(m, mine = -1) {
+  show(`${hdr(t('vote'), roundLabel(m))}
+    <div class="opts">${m.options.map((o, i) => `<button class="ans a${i}${mine < 0 ? '' : i === mine ? ' on' : ' dim'}" data-action="vote" data-i="${i}"
+      aria-pressed="${i === mine}">${shape(i, 34)}<span>${esc(o)}</span></button>`).join('')}</div>
+    ${mine < 0 ? '' : `<p class="hint">${t('vote_change')}</p>`}`, { plain: true });
 }
 
 /** @param {string} status */
 function catForm(status) {
   const prevText = input('c')?.value ?? '';
-  show(`${hdr(esc(me.name), roundLabel(round))}
+  show(`${hdr(esc(me.name))}
     <div class="center">
       <div style="display:flex;flex-direction:column;gap:8px"><h1 class="title">${t('suggest')}</h1>
         <p class="muted" style="font-size:18px;line-height:1.35">${t('suggest_hint')}</p></div>
@@ -250,8 +236,16 @@ function on(m) {
       lobbyPlayers = m.players;
       lobbyScreen();
       break;
-    case 'categories': round = m; startTimer(m.seconds); catForm(''); break;
-    case 'pick': stopTimer(); pickScreen(m); break;
+    case 'categories': startTimer(m.seconds); catForm(''); break;
+    case 'vote': ballot = m; startTimer(m.seconds); voteScreen(m); break;
+    case 'pick': {
+      stopTimer();
+      ballot = null;
+      const tie = m.counts.filter(n => n === Math.max(...m.counts)).length > 1;
+      show(`<div class="center mid"><p class="muted" style="font-size:18px">${roundLabel(m)}</p><h1 class="title pop">${esc(m.chosen)}</h1>
+        <p class="muted" style="font-size:19px">${tie ? `${t('tie')}<br>` : ''}${t('writing_n', { n: m.total })}</p></div>`);
+      break;
+    }
     case 'round_end': {
       const i = m.scores.findIndex(s => s.name === me.name);
       show(`<div class="center mid">${avatar(me, 120, 'pop')}<h1 class="title">${t('round_done', { n: m.round })}</h1>
@@ -295,6 +289,12 @@ app.addEventListener('click', e => {
       break;
     case 'category': sendCat(false); break;
     case 'surprise': sendCat(true); break;
+    case 'vote':
+      if (ballot) {
+        send({ type: 'vote', i: Number(b.dataset.i) });
+        voteScreen(ballot, Number(b.dataset.i));
+      }
+      break;
     case 'answer': if (cur) choose(cur, Number(b.dataset.i)); break;
   }
 });

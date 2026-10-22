@@ -5,7 +5,8 @@
 export interface Player { name: string; avatar: string; color: string }
 /** Game settings, changed by the host on the TV's setup screen */
 /** `ai_awards`: Claude writes the end-of-game awards instead of the templates in awards.json */
-export interface Settings { rounds: number; per_round: number; category_seconds: number; question_seconds: number; draw_size: number; avatars: boolean; ai_awards: boolean }
+/** `suggest_seconds`: suggesting categories before round 1; `category_seconds`: voting on a category each round */
+export interface Settings { rounds: number; per_round: number; suggest_seconds: number; category_seconds: number; question_seconds: number; avatars: boolean; ai_awards: boolean }
 /** Allowed values for each numeric setting */
 export type SettingOptions = { [K in Exclude<keyof Settings, 'avatars' | 'ai_awards'>]: number[] };
 /** `players` are the ones connected right now; avatar pickers are shown only when settings.avatars is on */
@@ -24,12 +25,16 @@ export type LobbyMsg = { type: 'lobby'; players: Player[]; settings: Settings };
 /** TV only: setup screen before the lobby opens; `players` is how many phones are already connected */
 export type SetupMsg = { type: 'setup'; settings: Settings; options: SettingOptions; players: number };
 export type JoinedMsg = { type: 'joined' } & Player;
-/** `total` is questions in this round; `used` are categories already played */
-export type CategoriesMsg = RoundInfo & { type: 'categories'; seconds: number; total: number; players: number; used: string[] };
-/** TV only: suggestions are being tidied up by Claude before the draw */
+/** Everyone suggests a category, once per game before round 1 */
+export type CategoriesMsg = { type: 'categories'; seconds: number; players: number };
+/** TV only: suggestions are being tidied up by Claude before the first vote */
 export type PreparingMsg = { type: 'preparing' };
-/** The round's category was drawn from `options` (suggestions plus random topics, `draw_size` in total); the TV spins a carousel landing on `chosen` */
-export type PickMsg = RoundInfo & { type: 'pick'; options: string[]; chosen: string; seconds: number; total: number };
+/** Players vote on the round's category (suggestions not played yet, topped up with random topics); `total` is questions in this round */
+export type VoteMsg = RoundInfo & { type: 'vote'; options: string[]; seconds: number; total: number; players: number };
+/** TV only: sent after each vote */
+export type VotesMsg = { type: 'votes'; voted: number; players: number };
+/** Vote result: `counts[i]` votes for `options[i]`; `chosen` has the most, ties drawn at random */
+export type PickMsg = RoundInfo & { type: 'pick'; options: string[]; counts: number[]; chosen: string; total: number };
 export type CatsMsg = { type: 'cats'; list: string[]; submitted: number; players: number };
 export type CategoryOkMsg = { type: 'category_ok'; text: string };
 export type GeneratingMsg = RoundInfo & { type: 'generating'; categories: string[]; total: number };
@@ -52,13 +57,14 @@ export type RoundEndMsg = RoundInfo & { type: 'round_end'; scores: Score[] };
 export type ScoresMsg = { type: 'scores'; scores: Score[]; final: boolean; questions: number; awards?: Award[] };
 export type ErrorMsg = { type: 'error'; message: string };
 export type ServerMsg =
-  | LobbyMsg | SetupMsg | JoinedMsg | CategoriesMsg | CatsMsg | CategoryOkMsg | PreparingMsg | PickMsg | GeneratingMsg | ProgressMsg
+  | LobbyMsg | SetupMsg | JoinedMsg | CategoriesMsg | CatsMsg | CategoryOkMsg | PreparingMsg | VoteMsg | VotesMsg | PickMsg | GeneratingMsg | ProgressMsg
   | ReadyMsg | QuestionMsg | AnsweredMsg | RevealMsg | RoundEndMsg | ScoresMsg | ErrorMsg;
 
 // Client -> server
 export type ClientMsg =
   | { type: 'join'; pid: string; name: string; avatar?: string; color?: string }
   | { type: 'category'; text: string; surprise: boolean }
+  | { type: 'vote'; i: number }  // index in VoteMsg.options; can change until time runs out
   | { type: 'answer'; i: number }
   | { type: 'continue' }  // after holding the Continue button
   // TV only:

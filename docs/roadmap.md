@@ -70,13 +70,14 @@ Each feature has an on/off switch (`.env` flag with a lobby toggle where it make
 - The TV shows the podium, then one award card at a time, then the podium again. Phones show the player's own awards under their final rank.
 
 ## Phase 3: Game setup and rounds (done)
-- The TV opens on a **setup screen**: rounds (1–5), questions per round, category time, answer time, avatars on/off. Settings live in memory (`g.settings` in `main.py`); `.env` gives the starting values. **Open lobby** shows the QR code; **Play again** returns to setup with the same values. Phones can join while the host is still on setup.
-- **Rounds:** each round, everyone suggests a category. Claude turns the suggestions into short category names and merges duplicates. The draw reel always holds *Categories in the draw* options (a setup setting): suggestions first, topped up with random built-in or banked topics. One is drawn at random (skipping categories already played this game) and generation starts straight away. Suggestions that lose go to an in-memory bank and can fill later draws. Meanwhile the TV spins a carousel over the suggestions that lands on the drawn one, and phones show a slot-style draw. Standings are shown between rounds.
-- Protocol: `setup`, `pick` and `round_end` messages are new; `categories`, `question` and `generating` carry `round`/`rounds`. The TV sends `settings`, `open`, `setup` and `start` (see `static/js/types.d.ts`).
+- The TV opens on a **setup screen**: rounds (1–5), questions per round, time to suggest categories, time to vote on a category, answer time, avatars on/off. Settings live in memory (`g.settings` in `main.py`); `.env` gives the starting values. **Open lobby** shows the QR code; **Play again** returns to setup with the same values. Phones can join while the host is still on setup.
+- **Suggestions:** once per game, before round 1, everyone suggests a category. Claude (the main model, low effort) turns all suggestions into short category names and merges duplicates in a single call. New suggestions also go to an in-memory bank that can fill votes in later games.
+- **Rounds:** before each round, players vote on 4 categories: unplayed suggestions picked at random, topped up with random built-in or banked topics. Phones show the choices in the answer colours and shapes; a vote can be changed until time runs out, and voting ends early once everyone has voted. The most votes wins; ties (including no votes at all) are drawn at random among the tied categories. Generation starts straight away while the TV shows the vote counts and the winner. Standings are shown between rounds.
+- Protocol: `setup`, `vote`, `votes`, `pick` and `round_end` messages are new; `vote`, `pick`, `question` and `generating` carry `round`/`rounds`. Phones send `vote`. The TV sends `settings`, `open`, `setup` and `start` (see `static/js/types.d.ts`).
 
 ## Verification
 - **Phase 0:** review the mockups and agree on the look before coding.
-- **Each phase:** run `python main.py --dev` with `QUESTION_SECONDS=10` and `CATEGORY_SECONDS=10` in `.env`, open `/host` in a desktop browser and `/` in 2–3 browser profiles.
+- **Each phase:** run `python main.py --dev` with `QUESTION_SECONDS=10`, `SUGGEST_SECONDS=30` and `CATEGORY_SECONDS=5` in `.env`, open `/host` in a desktop browser and `/` in 2–3 browser profiles.
 - **Phone layout:**
   - Use Chrome DevTools device mode (iPhone SE, Pixel 7) in both orientations and check that all 4 answers are visible without scrolling, including with a 40-character answer. Add one long-answer question to `mock_questions.json` for this.
   - Test on a real phone over LAN (or Docker with `PUBLIC_URL`) for the fullscreen prompt, wake lock and the iOS Add to Home Screen hint.
