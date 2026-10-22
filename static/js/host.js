@@ -90,11 +90,11 @@ function lobby() {
 
 /** "New game" screen: the host picks settings, then opens the lobby. @param {SetupMsg} m */
 function setup(m) {
-  const st = m.settings, o = m.options;
+  const st = m.settings, o = m.options, scroll = app.querySelector('.settings')?.scrollTop ?? 0;
   /** @param {string} key @param {string} label @param {{ v: string, label: string, on: boolean }[]} choices */
   const row = (key, label, choices) => `<div class="srow"><span class="slabel">${label}</span><div class="row">${choices.map(c =>
     `<button class="count${c.on ? ' on' : ''}" data-action="set" data-k="${key}" data-v="${c.v}" aria-pressed="${c.on}">${c.label}</button>`).join('')}</div></div>`;
-  /** @param {'rounds' | 'per_round' | 'category_seconds' | 'question_seconds'} key @param {(v: number) => string} fmt */
+  /** @param {'rounds' | 'per_round' | 'category_seconds' | 'question_seconds' | 'draw_size'} key @param {(v: number) => string} fmt */
   const nums = (key, fmt) => o[key].map(v => ({ v: String(v), label: fmt(v), on: v === st[key] }));
   const total = st.rounds * st.per_round;
   // Rough upper bound: category pick + draw/generation per round, answer time + reveal per question, standings between rounds
@@ -108,6 +108,7 @@ function setup(m) {
         ${row('per_round', t('s_per_round'), nums('per_round', String))}
         ${row('category_seconds', t('s_cat_time'), nums('category_seconds', secs))}
         ${row('question_seconds', t('s_q_time'), nums('question_seconds', secs))}
+        ${row('draw_size', t('s_draw'), nums('draw_size', String))}
         ${row('avatars', t('s_avatars'), [{ v: 'true', label: t('on'), on: st.avatars }, { v: 'false', label: t('off'), on: !st.avatars }])}
       </section>
       <aside class="summary">
@@ -119,6 +120,8 @@ function setup(m) {
         <button class="btn big" data-action="open">${t('open_lobby')}</button>
       </aside>
     </div>`;
+  const list = app.querySelector('.settings');
+  if (list) list.scrollTop = scroll;  // re-rendered on every change; keep the host's place in the list
 }
 
 /** Category draw: a carousel of the suggestions that slows down and stops on the chosen one. @param {PickMsg} m */
@@ -256,13 +259,14 @@ function on(m) {
       app.innerHTML = `<div class="top"><span class="chip pill">${m.rounds > 1 ? `${t('round_of', { n: m.round, total: m.rounds })} · ` : ''}${t('n_questions', { n: m.total })}</span>${ring(140)}</div>
         <div class="col center" style="justify-content:flex-start;padding-top:40px">
           <h1 class="huge">${t('pick_cat')}</h1>
-          <p class="muted big">${t('drawn')}</p>
+          <p class="muted big" id="csub">${t('drawn')}</p>
           <div class="row" style="gap:20px"><div class="bar wide"><i id="cbar" style="width:0"></i></div>
             <b class="big" id="cn">${t('sent_n', { n: 0, total: m.players })}</b></div>
           <div class="chips" id="cl"></div>
           ${m.used.length ? `<p class="muted">${t('played', { list: m.used.map(esc).join(', ') })}</p>` : ''}</div>`;
       startTimer(m.seconds);
       break;
+    case 'preparing': stopTimer(); setText('csub', t('preparing')); break;
     case 'pick': stopTimer(); spin(m); break;
     case 'cats': {
       setHTML('cl', chips(m.list));

@@ -116,7 +116,8 @@ h1,h2,p{margin:0}
 
 /* Setup ("New game") */
 .setup{flex-grow:1;display:flex;gap:56px;min-height:0}
-.settings{flex-grow:1;background:var(--card);border-radius:36px;box-shadow:0 10px 0 var(--card-edge);padding:36px 48px;display:flex;flex-direction:column;gap:20px}
+.settings{flex-grow:1;background:var(--card);border-radius:36px;box-shadow:0 10px 0 var(--card-edge);padding:36px 48px;display:flex;flex-direction:column;gap:32px;min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--muted) transparent}
+.settings>*{flex-shrink:0}
 .settings h2{font-size:56px}
 .srow{display:flex;flex-direction:column;gap:12px}
 .slabel{font-size:30px;color:var(--muted)}

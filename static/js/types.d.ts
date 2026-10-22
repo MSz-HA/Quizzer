@@ -4,7 +4,7 @@
 /** `avatar` is an emoji, or '' to show the name's initial */
 export interface Player { name: string; avatar: string; color: string }
 /** Game settings, changed by the host on the TV's setup screen */
-export interface Settings { rounds: number; per_round: number; category_seconds: number; question_seconds: number; avatars: boolean }
+export interface Settings { rounds: number; per_round: number; category_seconds: number; question_seconds: number; draw_size: number; avatars: boolean }
 /** Allowed values for each numeric setting */
 export type SettingOptions = { [K in Exclude<keyof Settings, 'avatars'>]: number[] };
 /** `players` are the ones connected right now; avatar pickers are shown only when settings.avatars is on */
@@ -23,7 +23,9 @@ export type SetupMsg = { type: 'setup'; settings: Settings; options: SettingOpti
 export type JoinedMsg = { type: 'joined' } & Player;
 /** `total` is questions in this round; `used` are categories already played */
 export type CategoriesMsg = RoundInfo & { type: 'categories'; seconds: number; total: number; players: number; used: string[] };
-/** The round's category was drawn from `options`; the TV spins a carousel landing on `chosen` */
+/** TV only: suggestions are being tidied up by Claude before the draw */
+export type PreparingMsg = { type: 'preparing' };
+/** The round's category was drawn from `options` (suggestions plus random topics, `draw_size` in total); the TV spins a carousel landing on `chosen` */
 export type PickMsg = RoundInfo & { type: 'pick'; options: string[]; chosen: string; seconds: number; total: number };
 export type CatsMsg = { type: 'cats'; list: string[]; submitted: number; players: number };
 export type CategoryOkMsg = { type: 'category_ok'; text: string };
@@ -44,7 +46,7 @@ export type RoundEndMsg = RoundInfo & { type: 'round_end'; scores: Score[] };
 export type ScoresMsg = { type: 'scores'; scores: Score[]; final: boolean; questions: number };
 export type ErrorMsg = { type: 'error'; message: string };
 export type ServerMsg =
-  | LobbyMsg | SetupMsg | JoinedMsg | CategoriesMsg | CatsMsg | CategoryOkMsg | PickMsg | GeneratingMsg | ProgressMsg
+  | LobbyMsg | SetupMsg | JoinedMsg | CategoriesMsg | CatsMsg | CategoryOkMsg | PreparingMsg | PickMsg | GeneratingMsg | ProgressMsg
   | QuestionMsg | AnsweredMsg | RevealMsg | RoundEndMsg | ScoresMsg | ErrorMsg;
 
 // Client -> server

@@ -65,7 +65,7 @@ Each feature has an on/off switch (`.env` flag with a lobby toggle where it make
 
 ## Phase 3: Game setup and rounds (done)
 - The TV opens on a **setup screen**: rounds (1–5), questions per round, category time, answer time, avatars on/off. Settings live in memory (`g.settings` in `main.py`); `.env` gives the starting values. **Open lobby** shows the QR code; **Play again** returns to setup with the same values. Phones can join while the host is still on setup.
-- **Rounds:** each round, everyone suggests a category. The server draws one at random (skipping categories already played this game) and starts generating straight away. Meanwhile the TV spins a carousel over the suggestions that lands on the drawn one, and phones show a slot-style draw. Standings are shown between rounds.
+- **Rounds:** each round, everyone suggests a category. Claude turns the suggestions into short category names and merges duplicates. The draw reel always holds *Categories in the draw* options (a setup setting): suggestions first, topped up with random built-in or banked topics. One is drawn at random (skipping categories already played this game) and generation starts straight away. Suggestions that lose go to an in-memory bank and can fill later draws. Meanwhile the TV spins a carousel over the suggestions that lands on the drawn one, and phones show a slot-style draw. Standings are shown between rounds.
 - Protocol: `setup`, `pick` and `round_end` messages are new; `categories`, `question` and `generating` carry `round`/`rounds`. The TV sends `settings`, `open`, `setup` and `start` (see `static/js/types.d.ts`).
 
 ## Verification
