@@ -46,6 +46,7 @@ const STRINGS = {
     drawn: 'Your suggestions go into the draw', preparing: 'Preparing the draw…', played: 'Already played: {list}', drawing: 'Drawing the category…',
     writing_n: 'Claude is writing {n} questions…', round_done: 'Round {n} complete', next_round: 'Next: round {n} of {total}',
     standing: 'You are #{rank} · {score} points',
+    continue: 'Continue', hold_hint: 'Hold for 1 second to continue', hold_tv: 'Hold Continue on any phone to go on',
   },
   pl: {
     connecting: 'Łączenie…', reconnecting: 'Ponowne łączenie…', fullscreen: 'Pełny ekran',
@@ -80,6 +81,7 @@ const STRINGS = {
     drawn: 'Wasze propozycje trafią do losowania', preparing: 'Przygotowujemy losowanie…', played: 'Już było: {list}', drawing: 'Losujemy kategorię…',
     writing_n: 'Klaudiusz pisze pytania ({n})…', round_done: 'Koniec rundy {n}', next_round: 'Następna: runda {n} z {total}',
     standing: 'Jesteś na {rank}. miejscu · {score} pkt',
+    continue: 'Dalej', hold_hint: 'Przytrzymaj 1 sekundę, aby przejść dalej', hold_tv: 'Przytrzymaj „Dalej” na telefonie, aby przejść dalej',
   },
 };
 /** @type {'en' | 'pl'} */

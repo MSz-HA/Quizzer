@@ -76,3 +76,16 @@ input:focus{border-color:var(--gold)}
 .slot{background:var(--card);border-radius:24px;box-shadow:0 8px 0 var(--card-edge);min-height:110px;width:100%;display:flex;align-items:center;justify-content:center;padding:16px 20px}
 .slot span{font-size:30px;font-weight:700;line-height:1.15}
 .slot span.won{color:var(--gold);animation:pop .3s ease-out}
+
+/* Hold-to-continue: a ring fills around the button while it is held */
+.cont{display:flex;flex-direction:column;align-items:center;gap:14px;flex-shrink:0;padding-top:12px}
+.hold{position:relative;width:min(140px,18dvh);aspect-ratio:1;border-radius:50%;margin:14px;background:var(--gold);color:var(--on-gold);
+  box-shadow:0 6px 0 var(--gold-edge);font-size:24px;font-weight:700;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+  transition:transform .08s,box-shadow .08s}
+.hold.on,.hold.done{transform:translateY(4px);box-shadow:0 2px 0 var(--gold-edge)}
+.hold svg{position:absolute;inset:-14px;width:calc(100% + 28px);height:calc(100% + 28px);transform:rotate(-90deg);pointer-events:none}
+.hold circle{fill:none;stroke-width:5;stroke-linecap:round}
+.hold .track{stroke:rgba(255,255,255,.18)}
+.hold .fill{stroke:var(--fg);stroke-dasharray:100;stroke-dashoffset:100;transition:stroke-dashoffset .25s}
+.hold.on .fill{stroke-dashoffset:0;transition:stroke-dashoffset 1s linear}
+.hold.done .fill{stroke-dashoffset:0;transition:none}

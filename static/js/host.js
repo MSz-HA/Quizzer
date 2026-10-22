@@ -162,7 +162,8 @@ function roundEnd(m) {
   app.innerHTML = `<div class="col center" style="justify-content:flex-start;gap:24px">
     <h1 class="huge">${t('round_done', { n: m.round })}</h1>
     <p class="muted big">${t('next_round', { n: m.round + 1, total: m.rounds })}</p>
-    <div class="standings">${rows}</div></div>`;
+    <div class="standings">${rows}</div>
+    <p class="muted">${t('hold_tv')}</p></div>`;
   prev = m.scores;
 }
 
@@ -199,7 +200,7 @@ function reveal(q, m) {
           <div class="row"><div class="vbar"><i style="width:${m.counts[i] / votes * 100}%"></i></div><span class="votes">${m.counts[i]}</span></div></div>`).join('')}</div>
         ${m.explanation ? `<div class="explain"><svg width="44" height="44" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="#FFC83D" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16.5"/><line x1="12" y1="7.5" x2="12" y2="7.6"/></svg><p>${esc(m.explanation)}</p></div>` : ''}
       </div>
-      <aside class="lb"><h2>${t('leaderboard')}</h2>${rows}</aside>
+      <aside class="lb"><h2>${t('leaderboard')}</h2>${rows}<div class="grow"></div><p class="muted holdtv">${t('hold_tv')}</p></aside>
     </div>`;
   setTimeout(animateBoard, 900);
 }
@@ -289,6 +290,10 @@ function on(m) {
       setText('pgt', t('batches', { n: m.done, total: m.total }));
       break;
     }
+    case 'ready':
+      app.innerHTML = `<div class="top"><span class="chip pill">${m.rounds > 1 ? `${t('round_of', { n: m.round, total: m.rounds })} · ` : ''}${t('n_questions', { n: m.total })}</span></div>
+        <div class="col center"><h1 class="huge pop">${esc(m.category)}</h1><p class="muted big">${t('hold_tv')}</p></div>`;
+      break;
     case 'question': cur = m; answered = new Set(); question(m); break;
     case 'answered':
       setHTML('who', m.players.map(p => avatar(p, 60, !p.done ? 'off' : answered.has(p.name) ? '' : 'pop')).join(''));

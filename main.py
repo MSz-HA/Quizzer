@@ -23,7 +23,6 @@ DEV = os.getenv("QUIZ_DEV") == "1"  # set by --dev; uses mock questions instead 
 FEATURE_AVATARS = os.getenv("FEATURE_AVATARS", "1") == "1"  # default: players pick a colour and emoji avatar
 BATCH = 10  # max questions per Claude request
 SPIN_SECONDS = 5  # category draw animation; questions are already being generated meanwhile
-ROUND_PAUSE = 8  # standings shown between rounds
 
 # Values the host can pick on the TV's setup screen (the .env defaults are always allowed too)
 OPTIONS = {
@@ -71,7 +70,8 @@ class State:
                 "question_seconds": Q_SECONDS, "draw_size": 5, "avatars": FEATURE_AVATARS}  # in memory only
     used = []         # categories already played this game
     bank = []         # suggestions that lost a draw; join the built-in topics until the server restarts
-    accepting = None  # None | "category" | "answer"
+    accepting = None  # None | "category" | "answer" | "continue"
+    go = None         # asyncio.Event set when a player holds Continue
     last = None       # last broadcast, replayed to late joiners
     task = None
     cats = {}         # pid -> category text
@@ -167,6 +167,13 @@ async def wait_for(seconds, done):
     end = time.monotonic() + seconds
     while time.monotonic() < end and not done():
         await asyncio.sleep(0.2)
+
+
+async def hold():
+    """Pause until a player holds Continue on their phone."""
+    g.go, g.accepting = asyncio.Event(), "continue"
+    await g.go.wait()
+    g.accepting = None
 
 
 async def gen_batch(cat, n, part, parts):
@@ -359,7 +366,9 @@ async def run_game():
             await bc({"type": "error", "message": "Claude did not return any usable questions. "
                       "Check the server console and your API key, then try again."})
             return
-        # 3. Play the round
+        # 3. Play the round, moving on only when a player holds Continue
+        await bc({"type": "ready", **rnd, "category": cat, "total": len(questions)})
+        await hold()
         for i, q in enumerate(questions):
             g.answers, g.q, g.t0, g.accepting = {}, q, time.monotonic(), "answer"
             await bc({"type": "question", **rnd, "n": i + 1, "total": len(questions), "category": q["cat"],
@@ -368,10 +377,10 @@ async def run_game():
             await wait_for(s["question_seconds"], lambda: all(pid in g.answers for pid in active()))
             await reveal(q, s["question_seconds"])
             asked += 1
-            await asyncio.sleep(6)
+            await hold()
         if r < s["rounds"]:
             await bc({"type": "round_end", **rnd, "scores": board()})
-            await asyncio.sleep(ROUND_PAUSE)
+            await hold()
     g.phase = "final"
     await bc({"type": "scores", "scores": board(), "final": True, "questions": asked})
 
@@ -444,6 +453,8 @@ async def ws_endpoint(ws: WebSocket, role: str = "player"):
             elif pid in g.players and t == "answer" and g.accepting == "answer" and pid not in g.answers:
                 g.answers[pid] = (int(m["i"]), time.monotonic() - g.t0)
                 await to_hosts(answered_msg())
+            elif pid in g.players and t == "continue" and g.accepting == "continue":
+                g.go.set()
     except (WebSocketDisconnect, RuntimeError, json.JSONDecodeError):
         pass
     finally:

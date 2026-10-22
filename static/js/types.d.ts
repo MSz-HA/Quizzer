@@ -31,29 +31,33 @@ export type CatsMsg = { type: 'cats'; list: string[]; submitted: number; players
 export type CategoryOkMsg = { type: 'category_ok'; text: string };
 export type GeneratingMsg = RoundInfo & { type: 'generating'; categories: string[]; total: number };
 export type ProgressMsg = { type: 'progress'; done: number; total: number };
+/** Questions are ready; the round starts when a player holds Continue */
+export type ReadyMsg = RoundInfo & { type: 'ready'; category: string; total: number };
 /** `n` and `total` count questions within the round */
 export type QuestionMsg = RoundInfo & {
   type: 'question'; n: number; total: number; category: string; text: string; options: string[]; seconds: number;
 };
 /** Sent to the TV when a question starts and after each answer */
 export type AnsweredMsg = { type: 'answered'; players: (Player & { done: boolean })[] };
-/** `you` is only present in the copy sent to each player */
+/** `you` is only present in the copy sent to each player. The game waits for a player to hold Continue */
 export type RevealMsg = {
   type: 'reveal'; correct: number; explanation: string; counts: number[]; scores: Score[]; you?: You;
 };
+/** Standings between rounds; the next round starts when a player holds Continue */
 export type RoundEndMsg = RoundInfo & { type: 'round_end'; scores: Score[] };
 /** `questions` is how many were asked in the whole game */
 export type ScoresMsg = { type: 'scores'; scores: Score[]; final: boolean; questions: number };
 export type ErrorMsg = { type: 'error'; message: string };
 export type ServerMsg =
   | LobbyMsg | SetupMsg | JoinedMsg | CategoriesMsg | CatsMsg | CategoryOkMsg | PreparingMsg | PickMsg | GeneratingMsg | ProgressMsg
-  | QuestionMsg | AnsweredMsg | RevealMsg | RoundEndMsg | ScoresMsg | ErrorMsg;
+  | ReadyMsg | QuestionMsg | AnsweredMsg | RevealMsg | RoundEndMsg | ScoresMsg | ErrorMsg;
 
 // Client -> server
 export type ClientMsg =
   | { type: 'join'; pid: string; name: string; avatar?: string; color?: string }
   | { type: 'category'; text: string; surprise: boolean }
   | { type: 'answer'; i: number }
+  | { type: 'continue' }  // after holding the Continue button
   // TV only:
   | { type: 'settings'; settings: Partial<Settings> }  // while on the setup screen
   | { type: 'open' }    // setup -> lobby (shows the QR code)

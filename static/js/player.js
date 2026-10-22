@@ -37,6 +37,7 @@ let cur = null;
  * @param {{ mood?: string, plain?: boolean }} [opts]
  */
 function show(html, { mood = '', plain = false } = {}) {
+  clearTimeout(holdTimer);
   document.body.dataset.mood = mood;
   document.body.classList.toggle('plain', plain);
   app.innerHTML = html;
@@ -45,6 +46,12 @@ function show(html, { mood = '', plain = false } = {}) {
 /** @param {string} left @param {string} [mid] */
 const hdr = (left, mid = '') => `<div class="hdr"><span>${left}</span><span class="muted">${mid}</span><span data-t="mmss"></span></div>
   <div class="bar thin"><i data-bar></i></div>`;
+// Round Continue button: the game moves on once anyone holds it for HOLD_MS, while a ring fills around it
+const HOLD_MS = 1000;
+let holdTimer = 0;
+const holdBtn = () => `<div class="cont"><button class="hold" data-hold><svg viewBox="0 0 100 100" aria-hidden="true">
+    <circle class="track" cx="50" cy="50" r="46"/><circle class="fill" cx="50" cy="50" r="46" pathLength="100"/></svg>${t('continue')}</button>
+  <p class="hint">${t('hold_hint')}</p></div>`;
 /** @param {string} title @param {string} [text] */
 const msg = (title, text = '') => show(`<div class="center mid"><h1 class="title">${title}</h1><p class="muted" style="font-size:19px">${text}</p></div>`);
 
@@ -208,7 +215,7 @@ function choose(q, i) {
 /** @param {RevealMsg} m */
 function result(m) {
   const y = m.you;
-  if (!y) return msg(t('round_over'), t('look_big'));
+  if (!y) return show(`<div class="center mid"><h1 class="title">${t('round_over')}</h1><p class="muted" style="font-size:19px">${t('look_big')}</p>${holdBtn()}</div>`);
   const kind = y.correct ? 'correct' : y.answered ? 'wrong' : 'slow';
   const icon = {
     correct: '<polyline points="4,12.5 9.5,18 20,6.5"/>',
@@ -223,7 +230,8 @@ function result(m) {
       ${sub ? `<div class="delta">${sub}</div>` : ''}
       ${y.correct && y.streak >= 3 ? `<div class="delta">🔥 ${t('in_a_row', { n: y.streak })}</div>` : ''}</div>
     <div class="stats"><div><small>${t('score')}</small><b>${num(y.score)}</b></div>
-      <div><small>${t('rank')}</small><b>#${y.rank} / ${m.scores.length}</b></div></div>`, { mood: kind });
+      <div><small>${t('rank')}</small><b>#${y.rank} / ${m.scores.length}</b></div></div>
+    ${holdBtn()}`, { mood: kind });
 }
 
 /** @param {ServerMsg} m */
@@ -247,7 +255,7 @@ function on(m) {
     case 'round_end': {
       const i = m.scores.findIndex(s => s.name === me.name);
       show(`<div class="center mid">${avatar(me, 120, 'pop')}<h1 class="title">${t('round_done', { n: m.round })}</h1>
-        <p class="muted" style="font-size:19px">${i < 0 ? '' : `${t('standing', { rank: i + 1, score: num(m.scores[i].score) })}<br>`}${t('next_round', { n: m.round + 1, total: m.rounds })}</p></div>`);
+        <p class="muted" style="font-size:19px">${i < 0 ? '' : `${t('standing', { rank: i + 1, score: num(m.scores[i].score) })}<br>`}${t('next_round', { n: m.round + 1, total: m.rounds })}</p>${holdBtn()}</div>`);
       break;
     }
     case 'category_ok': catForm(`${t('cat_sent', { text: `<b>${esc(m.text)}</b>` })}<br>${t('cat_change')}`); break;
@@ -255,6 +263,11 @@ function on(m) {
       stopTimer();
       show(`<div class="center mid"><h1 class="title">${t('writing_q')}</h1>
         <div class="chips">${m.categories.map(c => `<span>${esc(c)}</span>`).join('')}</div></div>`);
+      break;
+    case 'ready':
+      stopTimer();
+      show(`<div class="center mid"><p class="muted" style="font-size:18px">${roundLabel(m)}</p><h1 class="title">${esc(m.category)}</h1>
+        <p class="muted" style="font-size:19px">${t('n_questions', { n: m.total })}</p>${holdBtn()}</div>`);
       break;
     case 'question': cur = m; startTimer(m.seconds); questionScreen(m); break;
     case 'reveal': stopTimer(); result(m); break;
@@ -283,6 +296,20 @@ app.addEventListener('click', e => {
     case 'answer': if (cur) choose(cur, Number(b.dataset.i)); break;
   }
 });
+app.addEventListener('pointerdown', e => {
+  const b = /** @type {HTMLElement | null} */ (/** @type {Element} */ (e.target).closest('[data-hold]'));
+  if (!b || b.classList.contains('done')) return;
+  b.setPointerCapture(e.pointerId);  // keep counting if the finger drifts off the button
+  b.classList.add('on');
+  holdTimer = window.setTimeout(() => {
+    b.classList.replace('on', 'done');
+    send({ type: 'continue' });
+  }, HOLD_MS);
+});
+const release = () => { clearTimeout(holdTimer); app.querySelector('[data-hold].on')?.classList.remove('on'); };
+app.addEventListener('pointerup', release);
+app.addEventListener('pointercancel', release);
+app.addEventListener('contextmenu', e => { if (/** @type {Element} */ (e.target).closest('[data-hold]')) e.preventDefault(); });  // long-press menu
 // Keep the avatar preview's initial in sync with the typed name
 app.addEventListener('input', e => {
   const el = /** @type {HTMLInputElement} */ (e.target), preview = $('preview');

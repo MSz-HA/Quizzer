@@ -1,6 +1,7 @@
 /* Everything is laid out on a 1920x1080 stage that is scaled to fit the screen */
-body{overflow:hidden}
-#stage{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform:translate(-50%,-50%) scale(var(--s,1));background:var(--stage)}
+/* The background fills the whole screen, so wider (or narrower) screens show no bars around the stage */
+body{overflow:hidden;background:var(--stage),var(--bg)}
+#stage{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform:translate(-50%,-50%) scale(var(--s,1))}
 #app{width:100%;height:100%;padding:56px 96px 64px;display:flex;flex-direction:column;gap:36px}
 h1,h2,p{margin:0}
 .row{display:flex;align-items:center;gap:16px}
@@ -91,6 +92,7 @@ h1,h2,p{margin:0}
 .lbrow .dl.zero{color:#6E74A8}
 .lbrow.first .dl{color:#5C4300}
 .lbrow .sc{font-weight:700;width:120px;text-align:right}
+.holdtv{font-size:26px;text-align:center}
 
 /* Final: podium with confetti */
 .fin{position:relative;flex-grow:1;margin-bottom:-64px;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center}
