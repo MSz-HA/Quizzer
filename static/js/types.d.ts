@@ -4,9 +4,10 @@
 /** `avatar` is an emoji, or '' to show the name's initial */
 export interface Player { name: string; avatar: string; color: string }
 /** Game settings, changed by the host on the TV's setup screen */
-export interface Settings { rounds: number; per_round: number; category_seconds: number; question_seconds: number; draw_size: number; avatars: boolean }
+/** `ai_awards`: Claude writes the end-of-game awards instead of the templates in awards.json */
+export interface Settings { rounds: number; per_round: number; category_seconds: number; question_seconds: number; draw_size: number; avatars: boolean; ai_awards: boolean }
 /** Allowed values for each numeric setting */
-export type SettingOptions = { [K in Exclude<keyof Settings, 'avatars'>]: number[] };
+export type SettingOptions = { [K in Exclude<keyof Settings, 'avatars' | 'ai_awards'>]: number[] };
 /** `players` are the ones connected right now; avatar pickers are shown only when settings.avatars is on */
 export interface Info {
   url: string; qr: string; lang: 'en' | 'pl'; avatars: string[]; colors: string[]; players: Player[]; settings: Settings;
@@ -14,6 +15,8 @@ export interface Info {
 /** Position in a multi-round game */
 export interface RoundInfo { round: number; rounds: number }
 export interface Score extends Player { score: number; streak: number; best: number; correct: number }
+/** End-of-game award; `player` is null for awards about the game, like a question nobody got right */
+export interface Award { key: string; icon: string; title: string; text: string; player: Player | null }
 export interface You { answered: boolean; correct: boolean; delta: number; score: number; rank: number; streak: number }
 
 // Server -> client
@@ -46,7 +49,7 @@ export type RevealMsg = {
 /** Standings between rounds; the next round starts when a player holds Continue */
 export type RoundEndMsg = RoundInfo & { type: 'round_end'; scores: Score[] };
 /** `questions` is how many were asked in the whole game */
-export type ScoresMsg = { type: 'scores'; scores: Score[]; final: boolean; questions: number };
+export type ScoresMsg = { type: 'scores'; scores: Score[]; final: boolean; questions: number; awards?: Award[] };
 export type ErrorMsg = { type: 'error'; message: string };
 export type ServerMsg =
   | LobbyMsg | SetupMsg | JoinedMsg | CategoriesMsg | CatsMsg | CategoryOkMsg | PreparingMsg | PickMsg | GeneratingMsg | ProgressMsg

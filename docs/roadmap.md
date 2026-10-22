@@ -63,6 +63,12 @@ Each feature has an on/off switch (`.env` flag with a lobby toggle where it make
   - The `question` message sent per player includes their active effects, so `bc` needs a per-player variant like `reveal()` already does.
 - TV shows "Ania froze Kamil!" banners.
 
+**E. End-of-game awards (setup toggle for Claude) — done**
+- `reveal()` adds one record per question to `g.log` (who answered, right or wrong, how fast, ranking afterwards). `award_facts()` in `main.py` turns the log into the awards that apply. `pick_awards()` takes up to 5 of them, spread over as many players as possible.
+- Awards: speed demon, last-second hero, confidently wrong, quick draw, the thinker, on fire, cold streak, asleep at the wheel, brain buster (nobody got it), too easy (everybody got it), comeback, free fall, and, with 2+ rounds, category expert and blind spot.
+- By default each award's sentence comes from `awards.json` (icon, title and 20–30 lines per award, in English and Polish). With *End-of-game awards: Written by Claude* on the setup screen, Claude writes the titles and lines in one request. It starts during the last reveal, while players hold Continue. Templates are the fallback in dev mode or when the call fails.
+- The TV shows the podium, then one award card at a time, then the podium again. Phones show the player's own awards under their final rank.
+
 ## Phase 3: Game setup and rounds (done)
 - The TV opens on a **setup screen**: rounds (1–5), questions per round, category time, answer time, avatars on/off. Settings live in memory (`g.settings` in `main.py`); `.env` gives the starting values. **Open lobby** shows the QR code; **Play again** returns to setup with the same values. Phones can join while the host is still on setup.
 - **Rounds:** each round, everyone suggests a category. Claude turns the suggestions into short category names and merges duplicates. The draw reel always holds *Categories in the draw* options (a setup setting): suggestions first, topped up with random built-in or banked topics. One is drawn at random (skipping categories already played this game) and generation starts straight away. Suggestions that lose go to an in-memory bank and can fill later draws. Meanwhile the TV spins a carousel over the suggestions that lands on the drawn one, and phones show a slot-style draw. Standings are shown between rounds.

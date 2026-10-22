@@ -112,6 +112,15 @@ h1,h2,p{margin:0}
 .others .rk{width:28px}.others .sc{width:auto}
 .confetti{position:absolute;inset:-56px -96px 0;overflow:hidden;pointer-events:none}
 .confetti i{position:absolute;top:-40px;width:14px;height:24px;border-radius:3px;animation:fall linear both}
+/* Awards after the podium: the podium hides while a card is shown */
+.fin.awarding>:not(.confetti):not(.again):not(.award){visibility:hidden}
+.award{position:absolute;inset:0;display:none;align-items:center;justify-content:center}
+.fin.awarding .award{display:flex}
+.acard{width:1240px;background:var(--card);border-radius:40px;box-shadow:0 12px 0 var(--card-edge);padding:48px 72px 56px;display:flex;flex-direction:column;align-items:center;gap:22px}
+.aicon{font-size:120px;line-height:1}
+.acard .huge{color:var(--gold)}
+.aname{font-size:52px;font-weight:700}
+.atext{font-size:48px;line-height:1.25}
 @keyframes fall{to{top:110%;transform:rotate(900deg)}}
 @keyframes rise{from{transform:scaleY(0)}}
 @media (prefers-reduced-motion:reduce){.confetti{display:none}.pod .block,.lbrow.move{animation:none;transition:none}}

@@ -274,7 +274,9 @@ function on(m) {
     case 'scores': {
       stopTimer();
       const i = m.scores.findIndex(s => s.name === me.name);
-      lobbyScreen(t(m.final ? 'game_over' : 'round_over'), i < 0 ? '' : t('you_are', { rank: i + 1, score: num(m.scores[i].score) }));
+      const mine = (m.awards || []).filter(a => a.player?.name === me.name).map(a => `${esc(a.icon)} <b>${esc(a.title)}</b>`);
+      lobbyScreen(t(m.final ? 'game_over' : 'round_over'), (i < 0 ? '' : t('you_are', { rank: i + 1, score: num(m.scores[i].score) }))
+        + (mine.length ? `<br>${t('your_award', { list: mine.join(', ') })}` : ''));
       break;
     }
     case 'error': stopTimer(); msg(t('hold_on'), esc(m.message)); break;
