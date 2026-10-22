@@ -11,10 +11,10 @@ Mockups: [Quizzer redesign canvas](https://claude.ai/artifact/6qKMJiBu28Lu1iWx8B
 - **Phone landscape 844×390:** Question (2x2 grid filling the screen).
 - **Later (optional features):** avatar picker, power-up attack screen, frozen effect, TV podium with confetti.
 
-Visual direction: dark navy/indigo stage gradient with a soft spotlight, one chunky rounded display font (Fredoka, to be bundled in `static/` so it works offline), the four high-contrast answer colours kept with their shapes for colour-blind players, cards with a slight 3D bottom shadow, and short pop/slide animations. Iterate on the mockups before touching code.
+Visual direction: dark navy/indigo stage gradient with a soft spotlight, one chunky rounded display font (Baloo 2, chosen over Fredoka for Polish/Latin-ext coverage, bundled in `static/` so it works offline), the four high-contrast answer colours kept with their shapes for colour-blind players, cards with a slight 3D bottom shadow, and short pop/slide animations. Iterate on the mockups before touching code.
 
 ## Phase 1: Core redesign (done)
-Files: `static/host.html`, `static/player.html`, new `static/css/theme.css` (shared tokens, bundled Fredoka font, answer colours), new `static/js/common.js` (strings + `t()`, shapes, avatars, timer, websocket, fullscreen helpers). Later split into `static/css/*.css` and `static/js/*.js` ES modules with JSDoc type checking, see README, `static/manifest.json` + `static/icon.svg`, `main.py` (`lang` in `/api/info`).
+Files: `static/host.html`, `static/player.html`, new `static/css/theme.css` (shared tokens, bundled Baloo 2 font, answer colours), new `static/js/common.js` (strings + `t()`, shapes, avatars, timer, websocket, fullscreen helpers). Later split into `static/css/*.css` and `static/js/*.js` ES modules with JSDoc type checking, see README, `static/manifest.json` + `static/icon.svg`, `main.py` (`lang` in `/api/info`).
 1. **Shared theme:** move the duplicated `:root` vars, `COL`, `SYM` and `esc` into `static/theme.css` and `static/common.js` (already served via `app.mount("/static", ...)` in `main.py`).
 2. **UI language follows `QUIZ_LANGUAGE`:** `/api/info` (`main.py:info`) also returns `lang` (`"pl"` if `LANGUAGE` is Polish, otherwise `"en"`). `common.js` holds a `{pl:{...}, en:{...}}` string table plus a `t(key, vars)` helper. Both pages fetch `/api/info` before rendering (the player page currently doesn't, so add that).
 3. **Phone layout:**
