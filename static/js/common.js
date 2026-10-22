@@ -47,7 +47,7 @@ const STRINGS = {
     writing_n: 'Claude is writing {n} questions…', round_done: 'Round {n} complete', next_round: 'Next: round {n} of {total}',
     standing: 'You are #{rank} · {score} points',
     s_awards: 'End-of-game awards', aw_templates: 'Ready-made', aw_claude: 'Written by Claude (uses API)',
-    award_n: 'Award {n} of {total}', your_award: 'You won: {list}',
+    your_award: 'You won: {list}',
     continue: 'Continue', hold_hint: 'Hold for 1 second to continue', hold_tv: 'Hold Continue on any phone to go on',
   },
   pl: {
@@ -84,7 +84,7 @@ const STRINGS = {
     writing_n: 'Klaudiusz pisze pytania ({n})…', round_done: 'Koniec rundy {n}', next_round: 'Następna: runda {n} z {total}',
     standing: 'Jesteś na {rank}. miejscu · {score} pkt',
     s_awards: 'Nagrody na koniec gry', aw_templates: 'Gotowe teksty', aw_claude: 'Pisze Klaudiusz (zużywa API)',
-    award_n: 'Nagroda {n} z {total}', your_award: 'Zdobywasz: {list}',
+    your_award: 'Zdobywasz: {list}',
     continue: 'Dalej', hold_hint: 'Przytrzymaj 1 sekundę, aby przejść dalej', hold_tv: 'Przytrzymaj „Dalej” na telefonie, aby przejść dalej',
   },
 };

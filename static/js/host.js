@@ -27,7 +27,6 @@ let settings = null;
 let cur = null;
 /** Scores and ranking after the previous reveal, to animate the leaderboard. @type {Score[]} */
 let prev = [];
-const PODIUM_MS = 7000, AWARD_MS = 8000; // final screen: podium first, then each award card
 const ROW = 102; // leaderboard row height + gap, see .lbrow in host.css
 /** Players already shown as answered, so only new answers pop. @type {Set<string>} */
 let answered = new Set();
@@ -246,33 +245,17 @@ function final(m) {
   app.innerHTML = `<div class="fin">
     <div class="confetti" aria-hidden="true">${confetti}</div>
     <button class="btn alt again" data-action="setup">${t('play_again')}</button>
-    <div class="award" id="award"></div>
     <h1 class="huge">${t('wins', { name: esc(winner.name) })}</h1>
     <p class="muted big">${t('win_sub', { score: num(winner.score), correct: winner.correct, total: m.questions, best: winner.best })}</p>
     <div class="podium">${podium}</div>
     ${others ? `<div class="others">${others}</div>` : ''}
+    ${(m.awards || []).map(bubble).join('')}
   </div>`;
-  if (m.awards?.length) ceremony(m.awards);
 }
 
-/** After the podium, the awards one card at a time, then the podium again. @param {Award[]} awards */
-function ceremony(awards) {
-  const fin = app.querySelector('.fin'), box = $('award');
-  let i = 0;
-  const next = () => {
-    if (!fin || !box || !fin.isConnected) return;  // another screen took over
-    const a = awards[i++];
-    fin.classList.toggle('awarding', !!a);
-    if (!a) return;
-    box.innerHTML = `<div class="acard pop"><div class="aicon">${esc(a.icon)}</div>
-      <p class="muted">${t('award_n', { n: i, total: awards.length })}</p>
-      <h1 class="huge">${esc(a.title)}</h1>
-      ${a.player ? `<div class="row">${avatar(a.player, 96)}<span class="aname">${esc(a.player.name)}</span></div>` : ''}
-      <p class="atext">${esc(a.text)}</p></div>`;
-    setTimeout(next, AWARD_MS);
-  };
-  setTimeout(next, PODIUM_MS);
-}
+/** An award as a comic bubble floating beside the podium, slot n in host.css. @param {Award} a @param {number} n */
+const bubble = (a, n) => `<div class="bubble b${n}" style="--d:${2.2 + n * .7}s">
+  <div class="btext"><b>${esc(a.icon)} ${esc(a.title)}</b>${esc(a.text)}</div></div>`;
 
 /** @param {ServerMsg} m */
 function on(m) {
