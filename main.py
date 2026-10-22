@@ -488,8 +488,9 @@ async def run_game():
         played = {u.casefold() for u in g.used}
         subs = [c for c in await tidy(list(g.cats.values())) if c.casefold() not in played]
         options = random.sample(subs, min(s["draw_size"], len(subs)))
+        weights = [1.8] * len(options) + [1] * (s["draw_size"] - len(options))  # player suggestions win more often
         options += fresh_topics(s["draw_size"] - len(options), options)
-        cat = random.choice(options)
+        cat = random.choices(options, weights[:len(options)])[0]
         g.used.append(cat)
         known = {c.casefold() for c in topics()}
         g.bank += [c for c in subs if c != cat and c.casefold() not in known]
