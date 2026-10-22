@@ -1,0 +1,153 @@
+/* Everything is laid out on a 1920x1080 stage that is scaled to fit the screen */
+/* The background fills the whole screen, so wider (or narrower) screens show no bars around the stage */
+body{overflow:hidden;background:var(--stage),var(--bg)}
+#stage{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform:translate(-50%,-50%) scale(var(--s,1))}
+#app{width:100%;height:100%;padding:56px 96px 64px;display:flex;flex-direction:column;gap:36px}
+h1,h2,p{margin:0}
+.row{display:flex;align-items:center;gap:16px}
+.col{display:flex;flex-direction:column;gap:28px}
+.grow{flex-grow:1}
+.center{flex-grow:1;align-items:center;justify-content:center;text-align:center}
+.muted{color:var(--muted);font-size:30px}
+.big{font-size:36px}
+.top{display:flex;justify-content:space-between;align-items:center;min-height:132px}
+.pill{font-size:30px;padding:12px 28px;box-shadow:none;color:var(--muted)}
+.pill.gold{background:var(--gold);color:var(--on-gold);font-weight:600}
+.brand{display:flex;align-items:center;gap:20px;font-size:52px;font-weight:700}
+.logo{width:64px;height:64px;border-radius:18px;background:var(--gold);box-shadow:0 6px 0 var(--gold-edge);color:var(--on-gold);display:flex;align-items:center;justify-content:center;font-size:44px}
+.btn.big{font-size:44px;height:104px;padding:0 64px;border-radius:24px;box-shadow:0 8px 0 var(--gold-edge)}
+.fsbtn{font-size:24px;height:56px;padding:0 22px;border-radius:16px;display:flex;align-items:center;gap:10px}
+:root:fullscreen .fsbtn{display:none}
+:root:-webkit-full-screen .fsbtn{display:none}
+.huge{font-size:88px;font-weight:700;line-height:1.05}
+
+/* Lobby */
+.lobby{flex-grow:1;display:flex;gap:72px;min-height:0}
+.joincard{width:620px;background:var(--card);border-radius:36px;box-shadow:0 10px 0 var(--card-edge);padding:44px;display:flex;flex-direction:column;align-items:center;gap:24px;text-align:center}
+.joincard h2{font-size:56px}
+.qr{width:400px;height:400px;background:#fff;border-radius:28px;padding:16px}
+.url{font-size:34px;font-weight:600;color:var(--gold)}
+.joincard .muted{font-size:24px}
+.players{flex-grow:1;display:flex;flex-direction:column;gap:28px;min-width:0}
+.players h2{font-size:48px}
+.pgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;align-content:start;overflow:hidden}
+.pgrid.dense{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.pcard{background:var(--card);border-radius:24px;padding:18px 22px;display:flex;align-items:center;gap:18px;box-shadow:0 6px 0 var(--card-edge);font-size:34px;font-weight:600;min-width:0}
+.pcard span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dense .pcard{font-size:28px;padding:12px 16px}
+.count{font-size:34px;font-weight:600;width:120px;height:84px;border-radius:20px;background:var(--card);color:var(--fg);box-shadow:0 6px 0 var(--card-edge)}
+.count.on{background:var(--fg);color:var(--bg);box-shadow:0 6px 0 var(--muted)}
+
+/* Timer ring */
+.ringbox{position:relative}
+.ringbox svg{position:absolute;inset:0;transform:rotate(-90deg)}
+.ringbox b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:50px}
+
+/* Categories + generating */
+.bar.wide{width:520px;height:24px}
+.chips{display:flex;flex-wrap:wrap;justify-content:center;gap:24px;max-width:1500px}
+.chips .chip{font-size:44px;font-weight:600;padding:22px 36px;border-radius:28px;box-shadow:0 8px 0 var(--card-edge)}
+
+/* Question */
+.qtext{flex-grow:1;display:flex;align-items:center;justify-content:center;padding:0 80px;text-align:center}
+.qtext h1{font-size:84px;font-weight:600;line-height:1.12}
+.qtext h1.m{font-size:72px}.qtext h1.s{font-size:62px}
+.agrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px}
+.agrid .ans{height:150px;border-radius:28px;box-shadow:0 10px 0 var(--e);padding:0 36px;gap:28px;font-size:54px;font-weight:600;line-height:1.1}
+.agrid .ans.long{font-size:42px}
+.badge{width:76px;height:76px;border-radius:20px;background:rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.who{display:flex;gap:12px;flex-wrap:wrap}
+
+/* Reveal */
+.qsmall{font-size:56px;font-weight:600;line-height:1.12}
+.rv{flex-grow:1;display:flex;gap:56px;min-height:0}
+.rv .agrid{gap:24px}
+.rv .ans{height:190px;flex-direction:column;align-items:stretch;justify-content:center;gap:18px;padding:0 32px;font-size:44px}
+.rv .ans.long{font-size:36px}
+.rv .ans.dim{opacity:.3}
+.rv .ans.right{outline:6px solid var(--fg);outline-offset:6px}
+.rv .ans .row{gap:20px}
+.rv .ans svg{fill:var(--t)}
+.vbar{flex-grow:1;height:16px;border-radius:999px;background:rgba(0,0,0,.22);overflow:hidden}
+.vbar i{display:block;height:100%;background:var(--t);border-radius:999px}
+.votes{font-size:32px;font-weight:700;width:48px;text-align:right}
+.explain{background:var(--card);border-radius:28px;padding:26px 34px;display:flex;gap:24px;box-shadow:0 8px 0 var(--card-edge);font-size:36px;line-height:1.3}
+.explain svg{flex-shrink:0;margin-top:4px}
+.lb{width:560px;flex-shrink:0;display:flex;flex-direction:column;gap:14px}
+.lb h2{font-size:36px;margin-bottom:6px}
+.lbrow{height:88px;flex-shrink:0;border-radius:22px;background:var(--card);display:flex;align-items:center;gap:18px;padding:0 24px;font-size:32px;position:relative}
+.lbrow.move{transition:transform .7s cubic-bezier(.2,.8,.2,1),opacity .5s}
+.lbrow.first{background:var(--gold);color:var(--on-gold)}
+.lbrow .rk{font-weight:700;width:36px}
+.lbrow .nm{flex-grow:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lbrow .dl{font-size:26px;font-weight:600;color:var(--mint);transition:opacity .3s .5s}
+.lbrow .dl.hide{opacity:0;transition:none}
+.streak{display:inline-flex;align-items:center;gap:2px;font-size:26px;font-weight:700;color:#FF9F43}
+.flame{width:30px;height:30px;fill:#FF9F43}
+/* On the leaderboard the streak is a badge on the avatar's corner */
+.lbrow .av{position:relative;display:flex;margin-right:10px}
+.lbrow .streak{position:absolute;right:-14px;bottom:-10px;background:#2A1300;color:#FFB15C;border-radius:999px;padding:1px 8px 1px 4px;font-size:20px;box-shadow:0 0 0 3px var(--card)}
+.lbrow .streak .flame{width:20px;height:20px;fill:#FF9F43}
+.first .streak{box-shadow:0 0 0 3px var(--gold)}
+.lbrow .dl.zero{color:#6E74A8}
+.lbrow.first .dl{color:#5C4300}
+.lbrow .sc{font-weight:700;width:120px;text-align:right}
+.holdtv{font-size:26px;text-align:center}
+
+/* Final: podium with confetti */
+.fin{position:relative;flex-grow:1;margin-bottom:-64px;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center}
+.fin .huge{font-size:92px}
+.again{position:absolute;top:0;right:0;font-size:28px;height:68px;padding:0 28px;z-index:2}
+.podium{margin-top:auto;display:flex;align-items:flex-end;gap:32px;position:relative}
+.pod{width:320px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.pname{font-size:44px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pscore{font-size:32px;color:var(--muted);display:flex;align-items:center;gap:12px}
+.pod .block{width:100%;border-radius:28px 28px 0 0;display:flex;justify-content:center;padding-top:18px;font-size:110px;font-weight:700;transform-origin:bottom;animation:rise .8s cubic-bezier(.2,.8,.2,1) both}
+.pod.p1 .block{height:380px;background:var(--gold);color:var(--on-gold);animation-delay:.9s}
+.pod.p2 .block{height:280px;background:#D9DCF2;color:#0B1026;animation-delay:.5s}
+.pod.p3 .block{height:200px;background:#E8A672;color:#2A1300;animation-delay:.1s}
+.pod.p1 .avatar{animation-delay:1.5s}.pod.p2 .avatar{animation-delay:1.1s}.pod.p3 .avatar{animation-delay:.7s}
+.others{position:absolute;right:0;bottom:64px;width:300px;display:flex;flex-direction:column;gap:12px}
+.others .lbrow{height:68px;font-size:26px;gap:12px;padding:0 18px}
+.others .rk{width:28px}.others .sc{width:auto}
+.confetti{position:absolute;inset:-56px -96px 0;overflow:hidden;pointer-events:none}
+.confetti i{position:absolute;top:-40px;width:14px;height:24px;border-radius:3px;animation:fall linear both}
+/* Awards: comic bubbles floating beside the podium, popping in one by one after it rises */
+.bubble{position:absolute;width:350px;z-index:1;text-align:left;
+  animation:float 6s ease-in-out infinite alternate}
+.btext{background:#FFFBEA;color:#141A4D;border:4px solid #0A0E2E;border-radius:32px;box-shadow:6px 8px 0 #0A0E2E;
+  padding:16px 22px 18px;font-size:23px;line-height:1.2;display:flex;flex-direction:column;gap:6px;
+  animation:pop .5s cubic-bezier(.3,1.6,.5,1) var(--d) both}
+.btext b{font-size:30px;color:#C2410C;line-height:1.1}
+/* Slots: the two side columns first (the right one only above the "others" list), then the gaps above 2nd and 3rd place */
+.bubble.b0{left:0;top:170px;--r:-4deg}
+.bubble.b1{right:0;top:100px;--r:3deg}
+.bubble.b2{left:0;top:530px;--r:3deg}
+.bubble.b3{left:1025px;top:185px;--r:-3deg}
+.bubble.b4{left:365px;top:185px;--r:4deg}
+@keyframes float{from{transform:translateY(0) rotate(var(--r))}to{transform:translateY(-18px) rotate(calc(var(--r) * -1))}}
+@keyframes fall{to{top:110%;transform:rotate(900deg)}}
+@keyframes rise{from{transform:scaleY(0)}}
+@media (prefers-reduced-motion:reduce){.confetti{display:none}.bubble{animation:none;transform:rotate(var(--r))}.pod .block,.lbrow.move{animation:none;transition:none}}
+
+/* Setup ("New game") */
+.setup{flex-grow:1;display:flex;gap:56px;min-height:0}
+.settings{flex-grow:1;background:var(--card);border-radius:36px;box-shadow:0 10px 0 var(--card-edge);padding:36px 48px;display:flex;flex-direction:column;gap:32px;min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--muted) transparent}
+.settings>*{flex-shrink:0}
+.settings h2{font-size:56px}
+.srow{display:flex;flex-direction:column;gap:12px}
+.slabel{font-size:30px;color:var(--muted)}
+.settings .count{width:auto;min-width:120px;padding:0 24px;height:76px;background:var(--bg);box-shadow:0 6px 0 var(--card-edge)}
+.settings .count.on{background:var(--fg);color:var(--bg);box-shadow:0 6px 0 var(--muted)}
+.summary{width:520px;display:flex;flex-direction:column;gap:16px;align-items:stretch;text-align:center;padding-top:24px}
+.bignum{font-size:150px;font-weight:700;line-height:1;color:var(--gold)}
+
+/* Category vote */
+.agrid.vote{width:100%}
+.vote .ans.dim{opacity:.3}
+.vote .ans.won{outline:6px solid var(--fg);outline-offset:6px}
+.vcount{font-size:64px}
+
+/* Standings between rounds */
+.standings{width:1000px;display:flex;flex-direction:column;gap:14px;text-align:left}
+.standings .lbrow{height:92px;font-size:36px}

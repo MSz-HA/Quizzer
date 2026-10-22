@@ -3,124 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Quiz Party – Host</title>
-<style>
-:root{--bg:#1b1233;--fg:#fff6e5;--card:#2c2050;--gold:#ffc83d;color-scheme:dark}
-*{box-sizing:border-box}
-body{margin:0;min-height:100vh;background:var(--bg);color:var(--fg);font-family:"Trebuchet MS","Segoe UI",sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2vw}
-h1{font-size:clamp(2rem,5vw,4.5rem);margin:.2em 0;line-height:1.1}
-h2{font-size:clamp(1.4rem,3vw,2.4rem);margin:.3em 0}
-.q{max-width:1100px}
-.qr{width:min(28vh,260px);border-radius:12px;background:#fff;padding:8px;margin:1rem}
-.chips{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center;max-width:900px;margin:1rem 0 1.5rem}
-.chips span{background:var(--card);padding:.4rem 1rem;border-radius:999px;font-size:1.3rem}
-.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;width:min(1100px,96vw);margin-top:1rem}
-.card,.opt{border-radius:14px;padding:1.2rem 1.5rem;font-size:clamp(1.1rem,2.4vw,2rem);font-weight:700;display:flex;justify-content:space-between;gap:1rem;text-align:left;transition:opacity .3s}
-.card{background:var(--card)}
-.card em{font-style:normal;color:var(--gold)}
-.t{display:inline-block;min-width:2.2em;margin-left:1rem;color:var(--gold)}
-.top{font-size:1.4rem;opacity:.85}
-button{font:inherit;font-size:1.6rem;font-weight:700;background:var(--gold);color:#2a1a00;border:0;border-radius:12px;padding:.7rem 2rem;margin:.5rem;cursor:pointer}
-button:disabled{opacity:.4;cursor:not-allowed}
-button.alt{background:var(--card);color:var(--fg)}
-.board{list-style:none;padding:0;margin:1rem 0;width:min(640px,92vw);font-size:1.6rem}
-.board li{display:flex;justify-content:space-between;background:var(--card);margin:.4rem 0;padding:.6rem 1.2rem;border-radius:10px}
-.board li:first-child{background:var(--gold);color:#2a1a00}
-.note{font-size:1.4rem;max-width:900px;margin-top:1rem}
-.pills{display:flex;gap:.5rem;justify-content:center;margin-bottom:1rem}
-button.pill{background:var(--card);color:var(--fg);font-size:1.5rem;padding:.5rem 1.3rem;margin:0}
-button.pill.on{background:var(--gold);color:#2a1a00}
-@media (max-width:700px){.grid{grid-template-columns:1fr}}
-</style>
+<title>Quizzer – TV</title>
+<link rel="icon" href="/static/icon.svg">
+<link rel="stylesheet" href="/static/css/theme.css">
+<link rel="stylesheet" href="/static/css/host.css">
+<script type="module" src="/static/js/host.js"></script>
 </head>
 <body>
-<main id="app"><h1>Connecting…</h1></main>
-<script>
-const app = document.getElementById('app');
-const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const COL = ['#e63946', '#1f9d8f', '#e0a100', '#4361ee'], SYM = ['▲', '◆', '●', '■'];
-let ws, info, tick, count = 10, lobbyMsg = { players: [] };
-
-const send = o => ws.readyState === 1 && ws.send(JSON.stringify(o));
-const $ = id => document.getElementById(id);
-const chips = list => list.map(n => `<span>${esc(n)}</span>`).join('');
-
-function countdown(sec) {
-  clearInterval(tick);
-  let t = sec;
-  if ($('t')) $('t').textContent = t;
-  tick = setInterval(() => { t = Math.max(0, t - 1); if ($('t')) $('t').textContent = t; }, 1000);
-}
-function board(list, n) {
-  return `<ol class="board">${list.slice(0, n).map(s => `<li><span>${esc(s.name)}</span><b>${s.score}</b></li>`).join('')}</ol>`;
-}
-function lobby() {
-  const p = lobbyMsg.players;
-  app.innerHTML = `<h1>Scan to join</h1>
-    <img class="qr" src="${info.qr}" alt="QR code">
-    <h2>${esc(info.url)}</h2>
-    <div class="chips">${chips(p) || '<i>Waiting for players…</i>'}</div>
-    <p class="note">How many questions?</p>
-    <div class="pills">${[5, 10, 20, 50, 100].map(n => `<button class="pill${n === count ? ' on' : ''}" onclick="count=${n};lobby()">${n}</button>`).join('')}</div>
-    <button ${p.length ? '' : 'disabled'} onclick="send({type:'start',count})">Start game</button>`;
-}
-
-function on(m) {
-  if (m.type === 'reveal') clearInterval(tick);
-  switch (m.type) {
-    case 'lobby': lobbyMsg = m; lobby(); break;
-    case 'categories':
-      app.innerHTML = `<h2>Type a category on your phone<span class="t" id="t"></span></h2>
-        <p class="note" id="cn">0 of ${m.players} submitted</p>
-        <div class="chips" id="cl"></div>
-        <p class="note">${m.total} questions, mixed from every category</p>`;
-      countdown(m.seconds);
-      break;
-    case 'cats':
-      if ($('cl')) $('cl').innerHTML = chips(m.list);
-      if ($('cn')) $('cn').textContent = `${m.submitted} of ${m.players} submitted`;
-      break;
-    case 'generating':
-      clearInterval(tick);
-      app.innerHTML = `<h2>Claude is writing ${m.total} questions about</h2>
-        <div class="chips">${chips(m.categories)}</div><p class="note" id="pg">Working…</p>`;
-      break;
-    case 'progress':
-      if ($('pg')) $('pg').textContent = `${m.done} of ${m.total} batches ready`;
-      break;
-    case 'question':
-      app.innerHTML = `<div class="top">${esc(m.category)}, question ${m.n} of ${m.total}<span class="t" id="t"></span></div>
-        <h1 class="q">${esc(m.text)}</h1>
-        <div class="grid">${m.options.map((o, i) => `<div class="opt" id="o${i}" style="background:${COL[i]}"><span>${SYM[i]} ${esc(o)}</span><span></span></div>`).join('')}</div>
-        <p class="note" id="ans">0 answered</p>`;
-      countdown(m.seconds);
-      break;
-    case 'answered':
-      if ($('ans')) $('ans').textContent = `${m.n} of ${m.total} answered`;
-      break;
-    case 'reveal':
-      for (let i = 0; i < 4; i++) {
-        const o = $('o' + i); if (!o) continue;
-        o.style.opacity = i === m.correct ? 1 : .25;
-        o.lastElementChild.textContent = m.counts[i];
-      }
-      if ($('ans')) $('ans').outerHTML = `<p class="note">${esc(m.explanation)}</p>` + board(m.scores, 5);
-      break;
-    case 'scores':
-      app.innerHTML = `<h1>Final scores</h1>${board(m.scores, 10)}<button onclick="send({type:'lobby'})">Play again</button>`;
-      break;
-    case 'error':
-      app.innerHTML = `<h1>Something went wrong</h1><p class="note">${esc(m.message)}</p><button onclick="send({type:'lobby'})">Back to lobby</button>`;
-      break;
-  }
-}
-
-function connect() {
-  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws?role=host');
-  ws.onmessage = e => on(JSON.parse(e.data));
-  ws.onclose = () => setTimeout(connect, 1500);
-}
-fetch('/api/info').then(r => r.json()).then(i => { info = i; connect(); });
-</script>
+<div id="stage"><main id="app"><h1 class="huge">…</h1></main></div>
 </body>
 </html>

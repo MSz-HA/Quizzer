@@ -1,0 +1,10 @@
+{
+  "name": "Quizzer",
+  "short_name": "Quizzer",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "background_color": "#0B1026",
+  "theme_color": "#0B1026",
+  "icons": [{"src": "/static/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}]
+}

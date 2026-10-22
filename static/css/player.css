@@ -1,0 +1,90 @@
+body{display:flex;flex-direction:column;gap:14px;height:100dvh;overflow:hidden;
+  padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
+  background:radial-gradient(ellipse 90% 50% at 50% -5%,#2E3488 0%,#141A4D 55%,#0B1026 100%) var(--bg)}
+body.plain{background:var(--bg)}
+body[data-mood=correct]{background:#0E8074}
+body[data-mood=wrong]{background:#B42D31}
+body[data-mood=slow]{background:#2A3075}
+#app{flex:1;min-height:0;display:flex;flex-direction:column;gap:14px;overflow-y:auto}
+h1,p{margin:0}
+.center{flex:1;display:flex;flex-direction:column;justify-content:center;gap:22px;max-width:520px;width:100%;margin:0 auto}
+.mid{align-items:center;text-align:center}
+.muted{color:var(--muted)}
+.title{font-size:34px;font-weight:700;line-height:1.1}
+.logo{width:88px;height:88px;border-radius:26px;background:var(--gold);box-shadow:0 6px 0 var(--gold-edge);color:var(--on-gold);display:flex;align-items:center;justify-content:center;font-size:60px;font-weight:700}
+label{font-size:17px;color:var(--muted);margin-bottom:-12px}
+input{font:inherit;font-size:24px;font-weight:600;color:var(--fg);background:var(--card);border:3px solid var(--line);border-radius:18px;padding:14px 18px;width:100%;outline:none}
+input:focus{border-color:var(--gold)}
+.btn{font-size:26px;height:68px;width:100%}
+.btn.alt{font-size:22px;height:60px;display:flex;align-items:center;justify-content:center;gap:10px}
+.note{background:rgba(94,234,212,.12);border:2px solid var(--mint);border-radius:16px;padding:12px 16px;font-size:17px;line-height:1.35}
+.note b{color:var(--mint)}
+.hint{font-size:15px;color:var(--muted);text-align:center}
+.chips{display:flex;flex-wrap:wrap;justify-content:center;gap:10px}
+.chips span{background:var(--card);border-radius:999px;padding:8px 16px;font-size:18px}
+
+/* Fullscreen / Add to Home Screen banner */
+#fs{display:flex;align-items:center;background:var(--gold);color:var(--on-gold);border-radius:18px;box-shadow:0 4px 0 var(--gold-edge);flex-shrink:0}
+#fs[hidden]{display:none}
+#fs button{background:none;color:inherit;display:flex;align-items:center;text-align:left}
+#fs .go{flex:1;gap:12px;padding:12px 4px 12px 14px}
+#fs .x{padding:12px 14px}
+#fs .txt{flex:1;display:flex;flex-direction:column}
+#fs .txt b{font-size:18px}
+#fs .txt span{font-size:14px}
+
+/* In-game header: question number + countdown */
+.hdr{display:flex;justify-content:space-between;align-items:center;font-size:18px;font-weight:600}
+.hdr .muted{font-weight:400;font-size:16px}
+.bar.thin{height:8px;flex-shrink:0}
+
+/* Answer buttons: 1 column in portrait, 2x2 in landscape, always all four visible */
+.opts{flex:1;min-height:0;display:grid;gap:14px;grid-template-columns:minmax(0,1fr);grid-template-rows:repeat(4,minmax(0,1fr));padding-bottom:8px}
+.opts .ans{border-radius:22px;padding:0 18px;gap:14px;font-size:clamp(17px,min(6.5vw,3.8dvh),34px);font-weight:600;line-height:1.15;overflow:hidden;
+  touch-action:manipulation;user-select:none;-webkit-user-select:none;transition:transform .08s,box-shadow .08s}
+.opts .ans:active{transform:translateY(5px);box-shadow:0 3px 0 var(--e)}
+@media (orientation:landscape){
+  .opts{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:12px;padding-bottom:6px}
+  .opts .ans{font-size:clamp(15px,min(3.4vw,6.5dvh),32px)}
+}
+
+.tile{width:min(220px,30dvh);height:min(220px,30dvh);border-radius:48px;background:var(--c);box-shadow:0 10px 0 var(--e);display:flex;align-items:center;justify-content:center}
+.tile svg{fill:var(--t)}
+.badge{width:min(170px,22dvh);height:min(170px,22dvh);border-radius:50%;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center}
+.delta{font-size:28px;font-weight:600;background:rgba(0,0,0,.2);border-radius:999px;padding:8px 24px}
+.stats{background:rgba(0,0,0,.25);border-radius:24px;padding:16px 22px;display:flex;justify-content:space-between}
+.stats div{display:flex;flex-direction:column}
+.stats div+div{align-items:flex-end}
+.stats small{font-size:15px;opacity:.85}
+.stats b{font-size:30px}
+
+/* Join form: avatar preview, colour swatches and avatar grid */
+.who-am-i{display:flex;flex-direction:column;align-items:center;gap:12px}
+.pickrow{display:flex;flex-direction:column;gap:8px}
+.lbl{font-size:17px;color:var(--muted)}
+.swatches{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:8px}
+.sw{aspect-ratio:1;border-radius:12px;border:3px solid transparent;position:relative}
+.sw.on{border-color:var(--fg);transform:scale(1.08)}
+.sw.taken:not(.on)::after{content:"";position:absolute;inset:30%;border-radius:50%;background:rgba(11,16,38,.55)}
+.faces{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.face{aspect-ratio:1;border-radius:14px;background:var(--card);color:var(--fg);font-size:26px;font-weight:700;line-height:1;
+  display:flex;align-items:center;justify-content:center;border:3px solid transparent}
+.face.on{border-color:var(--gold);background:var(--line)}
+@media (orientation:landscape){.swatches{grid-template-columns:repeat(8,44px)}.faces{grid-template-columns:repeat(9,44px)}}
+
+/* Category vote: the picked choice stays lit */
+.opts .ans.on{outline:4px solid var(--fg);outline-offset:-8px}
+.opts .ans.dim{opacity:.35}
+
+/* Hold-to-continue: a ring fills around the button while it is held */
+.cont{display:flex;flex-direction:column;align-items:center;gap:14px;flex-shrink:0;padding-top:12px}
+.hold{position:relative;width:min(140px,18dvh);aspect-ratio:1;border-radius:50%;margin:14px;background:var(--gold);color:var(--on-gold);
+  box-shadow:0 6px 0 var(--gold-edge);font-size:24px;font-weight:700;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+  transition:transform .08s,box-shadow .08s}
+.hold.on,.hold.done{transform:translateY(4px);box-shadow:0 2px 0 var(--gold-edge)}
+.hold svg{position:absolute;inset:-14px;width:calc(100% + 28px);height:calc(100% + 28px);transform:rotate(-90deg);pointer-events:none}
+.hold circle{fill:none;stroke-width:5;stroke-linecap:round}
+.hold .track{stroke:rgba(255,255,255,.18)}
+.hold .fill{stroke:var(--fg);stroke-dasharray:100;stroke-dashoffset:100;transition:stroke-dashoffset .25s}
+.hold.on .fill{stroke-dashoffset:0;transition:stroke-dashoffset 1s linear}
+.hold.done .fill{stroke-dashoffset:0;transition:none}

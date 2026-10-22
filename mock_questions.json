@@ -26,5 +26,8 @@
     {"q": "W jakiej grze buduje się z bloków w świecie złożonym z sześcianów?", "options": ["Terraria", "Roblox", "Minecraft", "Fortnite"], "answer": 2, "explanation": "Minecraft jest jedną z najlepiej sprzedających się gier w historii."},
     {"q": "Jak nazywa się główny bohater serii The Legend of Zelda?", "options": ["Zelda", "Link", "Ganon", "Epona"], "answer": 1, "explanation": "Zelda to księżniczka, a grywalnym bohaterem jest Link."},
     {"q": "Która firma produkuje konsolę PlayStation?", "options": ["Nintendo", "Microsoft", "Sony", "Sega"], "answer": 2, "explanation": "Pierwsze PlayStation Sony wydało w 1994 roku."}
+  ],
+  "Historia": [
+    {"q": "Który traktat zakończył wojnę trzydziestoletnią w Europie w XVII wieku?", "options": ["Pokój westfalski podpisany w Münster i Osnabrück", "Traktat wersalski kończący pierwszą wojnę światową", "Kongres wiedeński po upadku Napoleona Bonapartego", "Pokój toruński między Polską a zakonem krzyżackim"], "answer": 0, "explanation": "Pokój westfalski z 1648 roku zakończył wojnę trzydziestoletnią."}
   ]
 }
