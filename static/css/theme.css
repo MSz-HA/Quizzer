@@ -33,6 +33,9 @@ button:disabled{opacity:.4;cursor:not-allowed}
 
 .avatar{border-radius:50%;color:#0B1026;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;line-height:1;transition:opacity .3s,filter .3s}
 .avatar.off{opacity:.3;filter:grayscale(1)}
+.by{display:flex;margin-left:auto;flex-shrink:0}
+.by .avatar{box-shadow:0 0 0 3px var(--e)}
+.by .avatar+.avatar{margin-left:-14px}
 .chip{background:var(--card);border-radius:999px;box-shadow:0 6px 0 var(--card-edge)}
 .bar{border-radius:999px;background:var(--card);overflow:hidden}
 .bar>i{display:block;height:100%;border-radius:999px;background:var(--mint);transition:width .25s linear}

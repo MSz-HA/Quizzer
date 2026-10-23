@@ -29,12 +29,13 @@ export type JoinedMsg = { type: 'joined' } & Player;
 export type CategoriesMsg = { type: 'categories'; seconds: number; players: number };
 /** TV only: suggestions are being tidied up by Claude before the first vote */
 export type PreparingMsg = { type: 'preparing' };
-/** Players vote on the round's category (suggestions not played yet, topped up with random topics); `total` is questions in this round */
-export type VoteMsg = RoundInfo & { type: 'vote'; options: string[]; seconds: number; total: number; players: number };
+/** Players vote on the round's category (suggestions not played yet, topped up with random topics); `by[i]` suggested `options[i]`
+ * (empty for random topics); `total` is questions in this round */
+export type VoteMsg = RoundInfo & { type: 'vote'; options: string[]; by: Player[][]; seconds: number; total: number; players: number };
 /** TV only: sent after each vote */
 export type VotesMsg = { type: 'votes'; voted: number; players: number };
 /** Vote result: `counts[i]` votes for `options[i]`; `chosen` has the most, ties drawn at random */
-export type PickMsg = RoundInfo & { type: 'pick'; options: string[]; counts: number[]; chosen: string; total: number };
+export type PickMsg = RoundInfo & { type: 'pick'; options: string[]; by: Player[][]; counts: number[]; chosen: string; total: number };
 export type CatsMsg = { type: 'cats'; list: string[]; submitted: number; players: number };
 export type CategoryOkMsg = { type: 'category_ok'; text: string };
 export type GeneratingMsg = RoundInfo & { type: 'generating'; categories: string[]; total: number };

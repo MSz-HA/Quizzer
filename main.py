@@ -81,6 +81,7 @@ class State:
     last = None       # last broadcast, replayed to late joiners
     task = None
     cats = {}         # pid -> category text
+    surprised = set() # pids whose category came from "Surprise me", so not shown as theirs
     options = []      # categories in this round's vote
     votes = {}        # pid -> index in options
     answers = {}
@@ -280,8 +281,8 @@ def fresh_topics(k, skip=()):
 
 
 async def tidy(texts):
-    """Turn suggestions into short category names, reusing a known topic's exact name when it means the same
-    thing, and drop duplicates. Falls back to the typed text without Claude (dev mode or on errors)."""
+    """Turn suggestions into short category names, one per suggestion, reusing a known topic's exact name when it
+    means the same thing. Falls back to the typed text without Claude (dev mode or on errors)."""
     names = texts
     if texts and not DEV:
         prompt = (
@@ -301,10 +302,7 @@ async def tidy(texts):
                 names = out
         except Exception as e:
             print("Tidying categories failed:", repr(e))
-    seen = {}
-    for n in names:
-        seen.setdefault(n.casefold(), n)
-    return list(seen.values())
+    return names
 
 
 def plan(cats, total):
@@ -497,13 +495,21 @@ async def run_game():
     g.phase, g.used, g.log = "running", [], []
     asked = 0
     # 1. Before the first round everyone suggests a category, once per game. Claude tidies them in one call
-    g.cats, g.accepting = {}, "category"
+    g.cats, g.surprised, g.accepting = {}, set(), "category"
     await bc({"type": "categories", "seconds": s["suggest_seconds"], "players": len(active())})
     await wait_for(s["suggest_seconds"], lambda: all(pid in g.cats for pid in active()))
     g.accepting = None
     if g.cats and not DEV:
         await to_hosts({"type": "preparing"})
-    subs = await tidy(list(g.cats.values()))
+    names = await tidy(list(g.cats.values()))
+    seen = {}  # drop duplicates, keeping the first spelling
+    for n in names:
+        seen.setdefault(n.casefold(), n)
+    subs = list(seen.values())
+    who = {}  # category -> pids who suggested it, shown as avatars in the vote
+    for pid, n in zip(g.cats, names):
+        if pid not in g.surprised:
+            who.setdefault(seen[n.casefold()], []).append(pid)
     known = {c.casefold() for c in topics()}
     g.bank += [c for c in subs if c.casefold() not in known]
     for r in range(1, s["rounds"] + 1):
@@ -514,8 +520,9 @@ async def run_game():
         left = [c for c in subs if c.casefold() not in played]
         options = random.sample(left, min(CHOICES, len(left)))
         options += fresh_topics(CHOICES - len(options), options)
+        by = [[public(g.players[pid]) for pid in who.get(o, [])] for o in options]
         g.options, g.votes, g.accepting = options, {}, "vote"
-        await bc({"type": "vote", **rnd, "options": options, "seconds": s["category_seconds"],
+        await bc({"type": "vote", **rnd, "options": options, "by": by, "seconds": s["category_seconds"],
                   "total": s["per_round"], "players": len(active())})
         await wait_for(s["category_seconds"], lambda: all(pid in g.votes for pid in active()))
         g.accepting = None
@@ -523,7 +530,7 @@ async def run_game():
         cat = random.choice([o for o, n in zip(options, counts) if n == max(counts)])
         g.used.append(cat)
         gen = asyncio.create_task(generate_all([cat], s["per_round"]))
-        await bc({"type": "pick", **rnd, "options": options, "counts": counts, "chosen": cat,
+        await bc({"type": "pick", **rnd, "options": options, "by": by, "counts": counts, "chosen": cat,
                   "total": s["per_round"]})
         await asyncio.sleep(RESULT_SECONDS)
         if not gen.done():
@@ -617,6 +624,7 @@ async def ws_endpoint(ws: WebSocket, role: str = "player"):
                 text = " ".join(text.split())[:40]
                 if text:
                     g.cats[pid] = text
+                    (g.surprised.add if m.get("surprise") else g.surprised.discard)(pid)
                     await send(ws, {"type": "category_ok", "text": text})
                     await to_hosts({"type": "cats", "list": list(g.cats.values()),
                                     "submitted": len(g.cats), "players": len(active())})

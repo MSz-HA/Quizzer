@@ -125,6 +125,9 @@ export function avatar(p, size, extra = '') {
   return `<div class="avatar ${extra}" style="width:${size}px;height:${size}px;font-size:${Math.round(size * scale)}px;background:${esc(p.color)}">${esc(p.avatar || [...p.name][0] || '?')}</div>`;
 }
 
+/** Overlapping avatars of the players who suggested a category ('' for none). @param {Player[]} ps @param {number} size */
+export const suggestedBy = (ps, size) => ps.length ? `<span class="by">${ps.map(p => avatar(p, size)).join('')}</span>` : '';
+
 // ---- Countdown: paints every [data-t] (seconds), [data-bar] (width) and [data-ring] (SVG stroke) ----
 const clock = { end: 0, total: 1, h: 0 };
 /** @param {number} seconds */

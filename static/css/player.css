@@ -39,12 +39,12 @@ input:focus{border-color:var(--gold)}
 .bar.thin{height:8px;flex-shrink:0}
 
 /* Answer buttons: 1 column in portrait, 2x2 in landscape, always all four visible */
-.opts{flex:1;min-height:0;display:grid;gap:14px;grid-template-columns:minmax(0,1fr);grid-template-rows:repeat(4,minmax(0,1fr));padding-bottom:8px}
-.opts .ans{border-radius:22px;padding:0 18px;gap:14px;font-size:clamp(17px,min(6.5vw,3.8dvh),34px);font-weight:600;line-height:1.15;overflow:hidden;
+.opts{flex:1;min-height:0;display:grid;gap:20px;grid-template-columns:minmax(0,1fr);grid-template-rows:repeat(4,minmax(0,1fr));padding-bottom:8px}
+.opts .ans{border-radius:22px;padding:10px 24px;gap:18px;font-size:clamp(17px,min(6.5vw,3.8dvh),34px);font-weight:600;line-height:1.15;overflow:hidden;
   touch-action:manipulation;user-select:none;-webkit-user-select:none;transition:transform .08s,box-shadow .08s}
 .opts .ans:active{transform:translateY(5px);box-shadow:0 3px 0 var(--e)}
 @media (orientation:landscape){
-  .opts{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:12px;padding-bottom:6px}
+  .opts{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:18px;padding-bottom:6px}
   .opts .ans{font-size:clamp(15px,min(3.4vw,6.5dvh),32px)}
 }
 
@@ -75,6 +75,8 @@ input:focus{border-color:var(--gold)}
 /* Category vote: the picked choice stays lit */
 .opts .ans.on{outline:4px solid var(--fg);outline-offset:-8px}
 .opts .ans.dim{opacity:.35}
+.opts .by{padding-left:6px}
+.opts .by .avatar+.avatar{margin-left:-6px}
 
 /* Hold-to-continue: a ring fills around the button while it is held */
 .cont{display:flex;flex-direction:column;align-items:center;gap:14px;flex-shrink:0;padding-top:12px}

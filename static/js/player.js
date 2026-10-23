@@ -1,6 +1,6 @@
 // @ts-check
 // Phone controller: join, suggest a category, vote, answer, see the result
-import { $, esc, t, num, loadInfo, shape, avatar, startTimer, stopTimer, paintTimer, send, connect, fsSupported, isFullscreen, goFullscreen } from './common.js';
+import { $, esc, t, num, loadInfo, shape, avatar, suggestedBy, startTimer, stopTimer, paintTimer, send, connect, fsSupported, isFullscreen, goFullscreen } from './common.js';
 
 /** @typedef {import('./types').ServerMsg} ServerMsg */
 /** @typedef {import('./types').QuestionMsg} QuestionMsg */
@@ -158,7 +158,7 @@ let ballot = null;
 function voteScreen(m, mine = -1) {
   show(`${hdr(t('vote'), roundLabel(m))}
     <div class="opts">${m.options.map((o, i) => `<button class="ans a${i}${mine < 0 ? '' : i === mine ? ' on' : ' dim'}" data-action="vote" data-i="${i}"
-      aria-pressed="${i === mine}">${shape(i, 34)}<span>${esc(o)}</span></button>`).join('')}</div>
+      aria-pressed="${i === mine}">${shape(i, 34)}<span>${esc(o)}</span>${suggestedBy(m.by[i], 36)}</button>`).join('')}</div>
     ${mine < 0 ? '' : `<p class="hint">${t('vote_change')}</p>`}`, { plain: true });
 }
 

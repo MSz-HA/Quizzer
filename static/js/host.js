@@ -1,6 +1,6 @@
 // @ts-check
 // TV screen: lobby with QR code, then questions, reveals and final scores
-import { $, esc, t, num, loadInfo, shape, avatar, startTimer, stopTimer, send, connect, fsSupported, goFullscreen } from './common.js';
+import { $, esc, t, num, loadInfo, shape, avatar, suggestedBy, startTimer, stopTimer, send, connect, fsSupported, goFullscreen } from './common.js';
 
 /** @typedef {import('./types').ServerMsg} ServerMsg */
 /** @typedef {import('./types').QuestionMsg} QuestionMsg */
@@ -136,7 +136,7 @@ function voteBoard(m) {
   const res = 'counts' in m ? m : null;
   const tie = !!res && res.counts.filter(n => n === Math.max(...res.counts)).length > 1;
   const cards = m.options.map((o, i) => `<div class="ans a${i} ${!res ? 'pop' : o === res.chosen ? 'won' : 'dim'}${o.length > 26 ? ' long' : ''}" style="animation-delay:${i * 80}ms">
-    <span class="badge">${shape(i, 44)}</span><span class="grow">${esc(o)}</span>${res ? `<b class="vcount">${res.counts[i]}</b>` : ''}</div>`).join('');
+    <span class="badge">${shape(i, 44)}</span><span class="grow">${esc(o)}</span>${suggestedBy(m.by[i], 64)}${res ? `<b class="vcount">${res.counts[i]}</b>` : ''}</div>`).join('');
   app.innerHTML = `<div class="top">${votePill(m)}${res ? '' : ring(132)}</div>
     <div class="col center" style="justify-content:flex-start;padding-top:20px;gap:48px">
       <h1 class="huge${res ? ' pop' : ''}">${res ? esc(res.chosen) : t('vote_tv')}</h1>
