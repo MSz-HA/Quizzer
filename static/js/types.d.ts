@@ -46,6 +46,8 @@ export type ReadyMsg = RoundInfo & { type: 'ready'; category: string; total: num
 /** `n` and `total` count questions within the round */
 export type QuestionMsg = RoundInfo & {
   type: 'question'; n: number; total: number; category: string; text: string; options: string[]; seconds: number;
+  /** Seconds the answers stay hidden before the clock starts */
+  lock: number;
 };
 /** Sent to the TV when a question starts and after each answer */
 export type AnsweredMsg = { type: 'answered'; players: (Player & { done: boolean })[] };
@@ -67,7 +69,7 @@ export type ClientMsg =
   | { type: 'join'; pid: string; name: string; avatar?: string; color?: string }
   | { type: 'category'; text: string; surprise: boolean }
   | { type: 'vote'; i: number }  // index in VoteMsg.options; can change until time runs out
-  | { type: 'answer'; i: number }
+  | { type: 'answer'; i: number; t: number }  // t = seconds from the answers appearing to the tap, timed on the phone
   | { type: 'continue' }  // after holding the Continue button
   // TV only:
   | { type: 'settings'; settings: Partial<Settings> }  // while on the setup screen

@@ -182,14 +182,17 @@ function sendCat(surprise) {
   if (surprise || text) send({ type: 'category', text, surprise });
 }
 
+/** When the answers appear (performance.now()); answer time is measured on the phone so network lag doesn't count */
+let answersAt = 0;
 /** @param {QuestionMsg} m */
 function questionScreen(m) {
+  answersAt = performance.now() + m.lock * 1000;
   show(`${hdr(`${m.n} / ${m.total}`, roundLabel(m) || t('look_tv'))}
-    <div class="opts">${m.options.map((o, i) => `<button class="ans a${i}" data-action="answer" data-i="${i}">${shape(i, 34)}<span>${esc(o)}</span></button>`).join('')}</div>`, { plain: true });
+    <div class="opts locked" style="animation-delay:${m.lock}s">${m.options.map((o, i) => `<button class="ans a${i}" data-action="answer" data-i="${i}">${shape(i, 34)}<span>${esc(o)}</span></button>`).join('')}</div>`, { plain: true });
 }
 /** @param {QuestionMsg} q @param {number} i */
 function choose(q, i) {
-  send({ type: 'answer', i });
+  send({ type: 'answer', i, t: Math.max(0, performance.now() - answersAt) / 1000 });
   show(`${hdr(`${q.n} / ${q.total}`)}
     <div class="center mid">
       <div class="tile a${i} pop">${shape(i, 110)}</div>
@@ -263,7 +266,7 @@ function on(m) {
       show(`<div class="center mid"><p class="muted" style="font-size:18px">${roundLabel(m)}</p><h1 class="title">${esc(m.category)}</h1>
         <p class="muted" style="font-size:19px">${t('n_questions', { n: m.total })}</p>${holdBtn()}</div>`);
       break;
-    case 'question': cur = m; startTimer(m.seconds); questionScreen(m); break;
+    case 'question': cur = m; startTimer(m.seconds, m.lock); questionScreen(m); break;
     case 'reveal': stopTimer(); result(m); break;
     case 'scores': {
       stopTimer();
@@ -295,10 +298,13 @@ app.addEventListener('click', e => {
         voteScreen(ballot, Number(b.dataset.i));
       }
       break;
-    case 'answer': if (cur) choose(cur, Number(b.dataset.i)); break;
+    case 'answer': if (cur && b === pressed) choose(cur, Number(b.dataset.i)); break;
   }
 });
+/** Button the current touch started on: an answer only counts if the finger went down on it, not on the screen before */
+let pressed = /** @type {Element | null} */ (null);
 app.addEventListener('pointerdown', e => {
+  pressed = /** @type {Element} */ (e.target).closest('[data-action]');
   const b = /** @type {HTMLElement | null} */ (/** @type {Element} */ (e.target).closest('[data-hold]'));
   if (!b || b.classList.contains('done')) return;
   b.setPointerCapture(e.pointerId);  // keep counting if the finger drifts off the button

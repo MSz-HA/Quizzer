@@ -19,6 +19,7 @@ PORT = int(os.getenv("PORT", "8000"))
 Q_SECONDS = int(os.getenv("QUESTION_SECONDS", "60"))  # default; the host can change it on the setup screen
 SUGGEST_SECONDS = int(os.getenv("SUGGEST_SECONDS", "90"))  # default, same; suggesting categories before round 1
 CATEGORY_SECONDS = int(os.getenv("CATEGORY_SECONDS", "15"))  # default, same; voting on a category each round
+ANSWER_LOCK = 0.6  # seconds the answers stay hidden on phones, so a tap meant for Continue can't pick one
 PUBLIC_URL = os.getenv("PUBLIC_URL")  # override if running in Docker
 DEV = os.getenv("QUIZ_DEV") == "1"  # set by --dev; uses mock questions instead of Claude
 FEATURE_AVATARS = os.getenv("FEATURE_AVATARS", "1") == "1"  # default: players pick a colour and emoji avatar
@@ -545,11 +546,11 @@ async def run_game():
         await bc({"type": "ready", **rnd, "category": cat, "total": len(questions)})
         await hold()
         for i, q in enumerate(questions):
-            g.answers, g.q, g.t0, g.accepting = {}, q, time.monotonic(), "answer"
+            g.answers, g.q, g.t0, g.accepting = {}, q, time.monotonic() + ANSWER_LOCK, "answer"
             await bc({"type": "question", **rnd, "n": i + 1, "total": len(questions), "category": q["cat"],
-                      "text": q["q"], "options": q["options"], "seconds": s["question_seconds"]})
+                      "text": q["q"], "options": q["options"], "seconds": s["question_seconds"], "lock": ANSWER_LOCK})
             await to_hosts(answered_msg())
-            await wait_for(s["question_seconds"], lambda: all(pid in g.answers for pid in active()))
+            await wait_for(ANSWER_LOCK + s["question_seconds"], lambda: all(pid in g.answers for pid in active()))
             await reveal(q, s["question_seconds"])
             asked += 1
             if r == s["rounds"] and i == len(questions) - 1:  # written while the last reveal is on screen
@@ -633,8 +634,11 @@ async def ws_endpoint(ws: WebSocket, role: str = "player"):
                 if type(i) is int and 0 <= i < len(g.options):
                     g.votes[pid] = i
                     await to_hosts({"type": "votes", "voted": len(g.votes), "players": len(active())})
-            elif pid in g.players and t == "answer" and g.accepting == "answer" and pid not in g.answers:
-                g.answers[pid] = (int(m["i"]), time.monotonic() - g.t0)
+            elif pid in g.players and t == "answer" and g.accepting == "answer" and pid not in g.answers \
+                    and time.monotonic() >= g.t0:
+                elapsed = time.monotonic() - g.t0  # includes network lag, so prefer the phone's own timing
+                t_phone = m.get("t")
+                g.answers[pid] = (int(m["i"]), min(elapsed, max(0.0, t_phone)) if type(t_phone) in (int, float) else elapsed)
                 await to_hosts(answered_msg())
             elif pid in g.players and t == "continue" and g.accepting == "continue":
                 g.go.set()

@@ -165,7 +165,7 @@ function question(m) {
   app.innerHTML = `<div class="top">${qPills(m)}${ring(132)}</div>
     <div class="qtext"><h1 class="${size}">${esc(m.text)}</h1></div>
     <div class="row"><div class="who" id="who"></div><span class="muted" id="ans"></span></div>`;
-  startTimer(m.seconds);
+  startTimer(m.seconds, m.lock);
 }
 
 /** @param {QuestionMsg} q @param {RevealMsg} m */

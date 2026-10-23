@@ -40,6 +40,9 @@ input:focus{border-color:var(--gold)}
 
 /* Answer buttons: 1 column in portrait, 2x2 in landscape, always all four visible */
 .opts{flex:1;min-height:0;display:grid;gap:20px;grid-template-columns:minmax(0,1fr);grid-template-rows:repeat(4,minmax(0,1fr));padding-bottom:8px}
+/* Question answers stay hidden (and untappable) for the lock set by the server via animation-delay, then fade in */
+.opts.locked{animation:unlock .15s both}
+@keyframes unlock{from{visibility:hidden;opacity:0}to{visibility:visible;opacity:1}}
 .opts .ans{border-radius:22px;padding:10px 24px;gap:18px;font-size:clamp(17px,min(6.5vw,3.8dvh),34px);font-weight:600;line-height:1.15;overflow:hidden;
   touch-action:manipulation;user-select:none;-webkit-user-select:none;transition:transform .08s,box-shadow .08s}
 .opts .ans:active{transform:translateY(5px);box-shadow:0 3px 0 var(--e)}

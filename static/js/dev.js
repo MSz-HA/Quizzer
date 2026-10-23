@@ -28,7 +28,7 @@ const categories = { type: 'categories', seconds: 90, players: 4 };
 const sent = { type: 'cats', list: cats.slice(0, 3), submitted: 3, players: 4 };
 /** @type {QuestionMsg} */
 const question = { type: 'question', ...rnd, n: 3, total: 5, category: cats[0], text: 'Which planet has the most known moons?',
-  options: ['Jupiter', 'Saturn', 'Uranus', 'Neptune'], seconds: 60 };
+  options: ['Jupiter', 'Saturn', 'Uranus', 'Neptune'], seconds: 60, lock: 0.6 };
 /** @type {RevealMsg} */
 const reveal = { type: 'reveal', correct: 1, explanation: 'Saturn has over 140 confirmed moons.', counts: [2, 1, 0, 1], scores,
   you: { answered: true, correct: true, delta: 820, score: 3650, rank: 2, streak: 3 } };

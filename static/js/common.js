@@ -130,9 +130,9 @@ export const suggestedBy = (ps, size) => ps.length ? `<span class="by">${ps.map(
 
 // ---- Countdown: paints every [data-t] (seconds), [data-bar] (width) and [data-ring] (SVG stroke) ----
 const clock = { end: 0, total: 1, h: 0 };
-/** @param {number} seconds */
-export function startTimer(seconds) {
-  clock.end = Date.now() + seconds * 1000;
+/** @param {number} seconds @param {number} [delay] seconds the clock stays full before counting down */
+export function startTimer(seconds, delay = 0) {
+  clock.end = Date.now() + (delay + seconds) * 1000;
   clock.total = seconds;
   clearInterval(clock.h);
   clock.h = window.setInterval(paintTimer, 250);
@@ -140,7 +140,7 @@ export function startTimer(seconds) {
 }
 export function stopTimer() { clearInterval(clock.h); }
 export function paintTimer() {
-  const left = Math.max(0, (clock.end - Date.now()) / 1000), f = left / clock.total, s = Math.ceil(left);
+  const left = Math.min(clock.total, Math.max(0, (clock.end - Date.now()) / 1000)), f = left / clock.total, s = Math.ceil(left);
   document.querySelectorAll('[data-t]').forEach(e => {
     e.textContent = /** @type {HTMLElement} */ (e).dataset.t === 'mmss' ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : String(s);
   });
