@@ -9,9 +9,10 @@ export interface Player { name: string; avatar: string; color: string }
 export interface Settings { rounds: number; per_round: number; suggest_seconds: number; category_seconds: number; question_seconds: number; avatars: boolean; ai_awards: boolean }
 /** Allowed values for each numeric setting */
 export type SettingOptions = { [K in Exclude<keyof Settings, 'avatars' | 'ai_awards'>]: number[] };
-/** `players` are the ones connected right now; avatar pickers are shown only when settings.avatars is on */
+/** `players` are the ones connected right now; avatar pickers are shown only when settings.avatars is on;
+ * `dev` is true with --dev (shows the dev bar) */
 export interface Info {
-  url: string; qr: string; lang: 'en' | 'pl'; avatars: string[]; colors: string[]; players: Player[]; settings: Settings;
+  url: string; qr: string; lang: 'en' | 'pl'; avatars: string[]; colors: string[]; players: Player[]; settings: Settings; dev: boolean;
 }
 /** Position in a multi-round game */
 export interface RoundInfo { round: number; rounds: number }

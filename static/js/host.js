@@ -329,8 +329,9 @@ app.addEventListener('click', e => {
   }
 });
 
-loadInfo().then(i => {
+loadInfo().then(async i => {
   info = i;
   app.innerHTML = `<h1 class="huge">${t('connecting')}</h1>`;
+  if (i.dev && (await import('./dev.js')).devBar('host', on)) return;  // previewing a screen offline
   connect('host', on);
 });

@@ -664,7 +664,7 @@ def info():
     url = PUBLIC_URL or f"http://{lan_ip()}:{PORT}/"
     return {"url": url, "qr": segno.make(url).svg_data_uri(scale=8), "lang": LANG,
             "avatars": list(AVATARS), "colors": list(COLORS), "players": lobby_msg()["players"],
-            "settings": g.settings}
+            "settings": g.settings, "dev": DEV}
 
 
 @app.middleware("http")

@@ -30,6 +30,11 @@ and auto-reloads the server when you edit code. Tip: set `QUESTION_SECONDS=10`,
 machine, open http://localhost:8000/ in different browsers or browser profiles
 (each one keeps its own player id).
 
+Dev mode also shows a dev bar at the bottom of the TV and phone pages. Pick a screen to preview it with
+sample data: the page goes offline (no game needed, nothing is sent to the server) and the timer is frozen.
+The choice is kept per tab, so refreshing after editing CSS/JS keeps you on that screen. **Live** goes back
+to the real game; **DEV** hides the bar.
+
 ## Docker (local network)
 
 ```bash

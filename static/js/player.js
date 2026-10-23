@@ -328,10 +328,15 @@ app.addEventListener('keydown', e => {
   if (id === 'c') sendCat(false);
 });
 
-loadInfo().then(i => {
+loadInfo().then(async i => {
   info = i;
   lobbyPlayers = i.players || [];
   avatarsOn = i.settings?.avatars ?? true;
+  if (i.dev) {
+    const dev = await import('./dev.js');
+    if (dev.screen) me = dev.ME;  // sample identity, not saved
+    if (dev.devBar('player', on)) return;  // previewing a screen offline
+  }
   const avatars = i.avatars || [];
   if (!me.name && avatars.length) draft.avatar = pickFree(avatars, new Set(lobbyPlayers.map(p => p.avatar)));  // first visit
   updateFs();
