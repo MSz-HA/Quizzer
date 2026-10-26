@@ -1,6 +1,6 @@
 // @ts-check
 // Phone controller: join, suggest a category, vote, answer, see the result
-import { $, esc, t, num, loadInfo, shape, avatar, suggestedBy, startTimer, stopTimer, paintTimer, send, connect, fsSupported, isFullscreen, goFullscreen, isSprint, roundSize } from './common.js';
+import { $, esc, t, num, loadInfo, shape, avatar, suggestedBy, startTimer, stopTimer, paintTimer, send, connect, fsSupported, isFullscreen, goFullscreen, isSprint, roundSize, INK, paintPoints, paintStrokes } from './common.js';
 
 /** @typedef {import('./types').ServerMsg} ServerMsg */
 /** @typedef {import('./types').QuestionMsg} QuestionMsg */
@@ -12,6 +12,7 @@ import { $, esc, t, num, loadInfo, shape, avatar, suggestedBy, startTimer, stopT
 /** @typedef {import('./types').SortItem} SortItem */
 /** @typedef {import('./types').CompareItem} CompareItem */
 /** @typedef {import('./types').AboutMsg} AboutMsg */
+/** @typedef {import('./types').Stroke} Stroke */
 
 const app = /** @type {HTMLElement} */ ($('app'));
 const fs = /** @type {HTMLElement} */ ($('fs'));
@@ -203,6 +204,81 @@ let run = { seq: [], k: 0, right: 0, busy: false };
 
 /** About rounds: the questions about you (indices in AboutMsg.asks), answered one at a time @type {{ m: AboutMsg | null, mine: number[], k: number }} */
 let about = { m: null, mine: [], k: 0 };
+
+// ---- Draw rounds: the drawer's canvas. Points go to the server in small batches, so the TV draws along ----
+/** The word to draw (sent separately, to the drawer only), the drawing so far and the pen colour */
+let draw = { word: '', strokes: /** @type {Stroke[]} */ ([]), ink: 0 };
+/** Points of the current stroke not sent yet @type {[number, number][]} */
+let pending = [];
+let flushTimer = 0, drawing = false;
+const pad = () => /** @type {HTMLCanvasElement | null} */ ($('pad'));
+/** @param {QuestionMsg} m */
+function drawScreen(m) {
+  draw = { word: '', strokes: [], ink: 0 };
+  show(`${hdr(qNum(m), t('you_draw'))}
+    <div class="word" id="word">…</div>
+    <div class="padbox"><canvas id="pad"></canvas></div>
+    <div class="tools">${INK.map((c, i) => `<button class="inkbtn${i ? '' : ' on'}" style="background:${c}" data-action="ink" data-i="${i}" aria-label="${c}"></button>`).join('')}
+      <button class="btn alt tool" data-action="undo" aria-label="${t('undo')}" title="${t('undo')}">↶</button>
+      <button class="btn alt tool" data-action="clear" aria-label="${t('clear')}" title="${t('clear')}">✕</button></div>`, { plain: true });
+  fitPad();
+}
+/** The biggest 4:3 canvas that fits, sharp on high-density screens */
+function fitPad() {
+  const cv = pad(), box = cv?.parentElement;
+  if (!cv || !box) return;
+  const w = Math.min(box.clientWidth, box.clientHeight * 4 / 3), dpr = devicePixelRatio || 1;
+  cv.style.width = `${w}px`;
+  cv.style.height = `${w * 3 / 4}px`;
+  cv.width = Math.round(w * dpr);
+  cv.height = Math.round(w * 3 / 4 * dpr);
+  paintStrokes(cv, draw.strokes);
+}
+addEventListener('resize', fitPad);
+function flush() {
+  if (!pending.length) return;
+  send({ type: 'ink', s: draw.strokes.length - 1, c: draw.strokes[draw.strokes.length - 1].c, p: pending });
+  pending = [];
+}
+/** @param {PointerEvent} e @returns {[number, number]} */
+const at = e => {
+  const r = /** @type {HTMLCanvasElement} */ (e.target).getBoundingClientRect(), k = 1000;
+  return [Math.round(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * k) / k,
+    Math.round(Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) * k) / k];
+};
+app.addEventListener('pointerdown', e => {
+  const cv = pad();
+  if (e.target !== cv || !cv) return;
+  e.preventDefault();
+  cv.setPointerCapture(e.pointerId);
+  drawing = true;
+  const p = at(e);
+  draw.strokes.push({ c: draw.ink, p: [p] });
+  pending = [p];
+  paintPoints(cv, draw.strokes[draw.strokes.length - 1]);
+  clearInterval(flushTimer);
+  flushTimer = window.setInterval(flush, 40);
+});
+app.addEventListener('pointermove', e => {
+  const cv = pad(), stroke = draw.strokes[draw.strokes.length - 1];
+  if (!drawing || e.target !== cv || !cv || !stroke) return;
+  const p = at(e), last = stroke.p[stroke.p.length - 1];
+  if (Math.hypot(p[0] - last[0], p[1] - last[1]) < .004) return;  // skip tiny moves: fewer points, smoother lines
+  stroke.p.push(p);
+  pending.push(p);
+  paintPoints(cv, stroke, stroke.p.length - 1);
+});
+/** Repaints the whole drawing once the finger lifts, so lines look like on the TV (piece by piece they look bolder) */
+const endStroke = () => { if (!drawing) return; drawing = false; clearInterval(flushTimer); flush(); paintStrokes(pad(), draw.strokes); };
+app.addEventListener('pointerup', endStroke);
+app.addEventListener('pointercancel', endStroke);
+/** @param {'undo' | 'clear'} what */
+function editDrawing(what) {
+  endStroke();
+  draw.strokes = what === 'undo' ? draw.strokes.slice(0, -1) : [];
+  send({ type: what });
+  paintStrokes(pad(), draw.strokes);
+}
 function aboutScreen() {
   const m = about.m;
   if (!m) return;
@@ -229,7 +305,8 @@ function questionScreen(m) {
   const seq = [...Array(n).keys()];
   if (m.kind === 'sort') seq.sort(() => Math.random() - .5);
   run = { seq, k: 0, right: 0, busy: false };
-  if (m.subject?.name === me.name) show(`${hdr(qNum(m))}<div class="center mid">${avatar(me, 120, 'pop')}
+  if (m.kind === 'draw' && m.subject?.name === me.name) drawScreen(m);
+  else if (m.subject?.name === me.name) show(`${hdr(qNum(m))}<div class="center mid">${avatar(me, 120, 'pop')}
     <h1 class="title">${t('spotlight')}</h1><p class="muted" style="font-size:19px">${t('spotlight_sub')}</p></div>`);
   else if (m.kind === 'number') numberScreen(m);
   else if (m.kind === 'order') orderScreen(m);
@@ -344,7 +421,7 @@ function result(m) {
   const lines = y.delta ? [t('points_delta', { n: num(y.delta) })] : [];
   if (m.kind === 'number' && m.answer !== undefined) lines.push(t('answer_was', { a: `${num(m.answer)}${m.unit ? ` ${esc(m.unit)}` : ''}` }));
   else if (!y.correct && !y.spotlight && cur && m.correct !== undefined) lines.push(t('answer_was', { a: esc(cur.options[m.correct]) }));
-  const title = y.spotlight ? t('known', { n: y.right ?? 0, total: y.of ?? 0 })
+  const title = y.spotlight ? t(m.kind === 'draw' ? 'guessed_it' : 'known', { n: y.right ?? 0, total: y.of ?? 0 })
     : !y.answered ? t('slow')
     : m.kind === 'number' ? t(y.correct ? 'closest' : 'not_closest')
     : m.kind === 'order' && !y.correct ? t('placed', { n: y.placed ?? 0 })
@@ -410,7 +487,9 @@ function on(m) {
       aboutScreen();
       break;
     case 'question': cur = m; startTimer(m.seconds, m.lock); questionScreen(m); break;
-    case 'reveal': stopTimer(); result(m); break;
+    case 'reveal': stopTimer(); endStroke(); result(m); break;
+    case 'secret': draw.word = m.word; { const el = $('word'); if (el) el.textContent = m.word; } break;
+    case 'strokes': if (pad()) { draw.strokes = m.strokes; paintStrokes(pad(), draw.strokes); } break;
     case 'scores': {
       stopTimer();
       const i = m.scores.findIndex(s => s.name === me.name);
@@ -447,6 +526,11 @@ app.addEventListener('click', e => {
     case 'send_order': if (cur && ordered.length === 4) { send({ type: 'answer', order: ordered, t: took() }); lockedIn(cur, ordered.map(i => esc(cur?.options[i])).join(' → ')); } break;
     case 'pick': if (b === pressed) pick(Number(b.dataset.b)); break;
     case 'mine': if (b === pressed) answerMine(Number(b.dataset.b)); break;
+    case 'ink':
+      draw.ink = Number(b.dataset.i);
+      app.querySelectorAll('.inkbtn').forEach(x => x.classList.toggle('on', x === b));
+      break;
+    case 'undo': case 'clear': editDrawing(b.dataset.action); break;
   }
 });
 /** Button the current touch started on: an answer only counts if the finger went down on it, not on the screen before */

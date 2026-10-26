@@ -4,8 +4,11 @@
 /** `avatar` is an emoji, or '' to show the name's initial */
 export interface Player { name: string; avatar: string; color: string }
 /** Round types: see KINDS in main.py. Sort and compare are sprints: one set per round, played at each phone's own pace.
- * About ("who knows them best"): players answer questions about themselves, then the others guess */
-export type Kind = 'classic' | 'odd' | 'truefalse' | 'number' | 'order' | 'sort' | 'compare' | 'about';
+ * About ("who knows them best"): players answer questions about themselves, then the others guess.
+ * Draw: Pictionary, the `subject` draws a word only their phone gets (SecretMsg), the others pick it from `options` */
+export type Kind = 'classic' | 'odd' | 'truefalse' | 'number' | 'order' | 'sort' | 'compare' | 'about' | 'draw';
+/** One pen stroke: colour index (see INK in common.js) and points with x, y in 0..1 on a 4:3 canvas */
+export interface Stroke { c: number; p: [number, number][] }
 /** Game settings, changed by the host on the TV's setup screen */
 /** `suggest_seconds`: suggesting categories before round 1; `category_seconds`: voting on a category each round */
 /** `read_seconds`: reading the question before the answers show on phones; `reveal_seconds`: reading the answer before Continue works */
@@ -87,7 +90,15 @@ export type RevealMsg = {
   answer?: number; unit?: string; guesses?: Guess[];
   order?: number[]; values?: string[]; placed?: number[];
   right?: number[]; players?: number;
+  /** Draw rounds: the finished drawing */
+  strokes?: Stroke[];
 };
+/** Draw rounds, to the drawer only: the word to draw */
+export type SecretMsg = { type: 'secret'; word: string };
+/** Draw rounds, to the TV: points added to stroke `s` (a new stroke when s is the next index) */
+export type InkMsg = { type: 'ink'; s: number; c: number; p: [number, number][] };
+/** Draw rounds: the whole drawing, after an undo or clear and to a screen that reconnects */
+export type StrokesMsg = { type: 'strokes'; strokes: Stroke[] };
 /** Standings between rounds; the next round starts when a player holds Continue */
 export type RoundEndMsg = RoundInfo & { type: 'round_end'; scores: Score[] };
 /** `questions` is how many were asked in the whole game */
@@ -95,7 +106,7 @@ export type ScoresMsg = { type: 'scores'; scores: Score[]; final: boolean; quest
 export type ErrorMsg = { type: 'error'; message: string };
 export type ServerMsg =
   | LobbyMsg | SetupMsg | JoinedMsg | CategoriesMsg | CatsMsg | CategoryOkMsg | PreparingMsg | VoteMsg | VotesMsg | PickMsg | GeneratingMsg | ProgressMsg
-  | ReadyMsg | AboutMsg | QuestionMsg | AnsweredMsg | RevealMsg | RoundEndMsg | ScoresMsg | ErrorMsg;
+  | ReadyMsg | AboutMsg | QuestionMsg | SecretMsg | InkMsg | StrokesMsg | AnsweredMsg | RevealMsg | RoundEndMsg | ScoresMsg | ErrorMsg;
 
 // Client -> server
 export type ClientMsg =
@@ -107,6 +118,9 @@ export type ClientMsg =
   | { type: 'answer'; i?: number; value?: number; order?: number[]; t: number }
   | { type: 'pick'; i: number; b: number; t: number }  // sprints: pick i (see QuestionMsg.key), b = 0 or 1
   | { type: 'mine'; i: number; b: number }  // about rounds: your answer b (option index) to AboutMsg.asks[i]
+  // draw rounds, from the drawer: points for stroke s (the last one, or the next index to start one), colour c
+  | { type: 'ink'; s: number; c: number; p: [number, number][] }
+  | { type: 'undo' } | { type: 'clear' }
   | { type: 'continue' }  // after holding the Continue button
   // TV only:
   | { type: 'settings'; settings: Partial<Settings> }  // while on the setup screen

@@ -188,3 +188,12 @@ h1,h2,p{margin:0}
 .qtext:has(.spot){flex-direction:column;gap:24px}
 .spot{display:flex;align-items:center;gap:28px;font-size:64px;font-weight:700;color:var(--gold)}
 .pill.subj{display:flex;align-items:center;gap:12px;color:var(--fg);font-weight:600;padding-left:12px}
+
+/* Draw rounds: the drawing beside who is drawing, and next to the options in the reveal */
+.board{border-radius:24px;box-shadow:0 10px 0 var(--card-edge);flex-shrink:0}
+.drawq{flex-grow:1;display:flex;gap:56px;min-height:0;align-items:flex-start}
+.drawq .board{width:1040px;height:780px}
+.drawq .side{flex-grow:1;min-width:0}
+.drawq .spot{font-size:48px;flex-wrap:wrap}
+.drawrv{display:flex;gap:32px;align-items:center}
+.drawrv .board{width:640px;height:480px}

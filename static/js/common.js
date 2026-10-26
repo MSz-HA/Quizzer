@@ -63,6 +63,8 @@ const STRINGS = {
     k_about: 'Who knows them best', r_about: 'First answer a few questions about yourself on your phone. Then guess what the others picked.',
     about_you: 'About you', about_tv: 'Answer the questions about yourself on your phone', about_none: 'No questions about you this round.',
     spotlight: "It's about you!", spotlight_sub: 'The others are guessing your answer', known: '{n} of {total} knew you',
+    k_draw: 'Pictionary', r_draw: 'One of you draws a secret word on their phone, the rest guess it on theirs. Watch the TV!',
+    you_draw: 'Draw this', drawing_tv: '{name} is drawing', guessed_it: '{n} of {total} guessed it', undo: 'Undo', clear: 'Clear',
   },
   pl: {
     connecting: 'Łączenie…', reconnecting: 'Ponowne łączenie…', fullscreen: 'Pełny ekran',
@@ -114,6 +116,8 @@ const STRINGS = {
     k_about: 'Kto zna cię najlepiej', r_about: 'Najpierw odpowiedz na telefonie na kilka pytań o sobie. Potem zgaduj, co wybrali inni.',
     about_you: 'O tobie', about_tv: 'Odpowiedzcie na telefonach na pytania o sobie', about_none: 'W tej rundzie nie ma pytań o ciebie.',
     spotlight: 'To pytanie o ciebie!', spotlight_sub: 'Pozostali zgadują twoją odpowiedź', known: 'Znają cię: {n} z {total}',
+    k_draw: 'Kalambury rysunkowe', r_draw: 'Jedna osoba rysuje na telefonie tajne hasło, reszta zgaduje na swoich. Patrzcie na telewizor!',
+    you_draw: 'Narysuj', drawing_tv: '{name} rysuje', guessed_it: 'Odgadło: {n} z {total}', undo: 'Cofnij', clear: 'Wyczyść',
   },
 };
 /** @type {'en' | 'pl'} */
@@ -131,6 +135,41 @@ export const num = n => n.toLocaleString(LANG === 'pl' ? 'pl-PL' : 'en-US');
 export const isSprint = kind => kind === 'sort' || kind === 'compare';
 /** "Odd one out · 5 questions" (no count for sprints, which are one set) @param {{ kind: string, total: number }} m */
 export const roundSize = m => `${t('k_' + m.kind)}${isSprint(m.kind) ? '' : ` · ${t('n_questions', { n: m.total })}`}`;
+
+// ---- Draw rounds: strokes with x, y in 0..1 on a 4:3 canvas, painted at any size ----
+/** @typedef {import('./types').Stroke} Stroke */
+export const INK = ['#1B1B2F', '#D13438', '#2F6FE0', '#11936F'];
+const PAPER = '#FFFDF7';
+/** @param {HTMLCanvasElement} cv */
+const pen = cv => {
+  const ctx = /** @type {CanvasRenderingContext2D} */ (cv.getContext('2d'));
+  ctx.lineCap = ctx.lineJoin = 'round';
+  ctx.lineWidth = cv.width * .012;
+  return ctx;
+};
+/** Points of `stroke` from index `from` on (from > 0 continues the line from the point before) @param {HTMLCanvasElement} cv @param {Stroke} stroke @param {number} [from] */
+export function paintPoints(cv, stroke, from = 0) {
+  const ctx = pen(cv), p = stroke.p, w = cv.width, h = cv.height;
+  if (!p.length || from >= p.length) return;
+  ctx.strokeStyle = ctx.fillStyle = INK[stroke.c] || INK[0];
+  if (p.length === 1) {  // a dot
+    ctx.beginPath(); ctx.arc(p[0][0] * w, p[0][1] * h, ctx.lineWidth / 2, 0, 2 * Math.PI); ctx.fill();
+    return;
+  }
+  ctx.beginPath();
+  const start = Math.max(0, from - 1);
+  ctx.moveTo(p[start][0] * w, p[start][1] * h);
+  for (let i = start + 1; i < p.length; i++) ctx.lineTo(p[i][0] * w, p[i][1] * h);
+  ctx.stroke();
+}
+/** The whole drawing on a blank page @param {HTMLCanvasElement | null} cv @param {Stroke[]} strokes */
+export function paintStrokes(cv, strokes) {
+  if (!cv) return;
+  const ctx = pen(cv);
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(0, 0, cv.width, cv.height);
+  strokes.forEach(s => paintPoints(cv, s));
+}
 
 /** Fetch join URL, QR code and UI language. @returns {Promise<Partial<Info>>} */
 export function loadInfo() {

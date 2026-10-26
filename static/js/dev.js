@@ -20,7 +20,7 @@ const scores = PLAYERS.map((p, i) => ({ ...p, score: [4200, 3650, 2900, 1500][i]
 /** @type {import('./types').Settings} */
 const settings = { rounds: 3, per_round: 5, suggest_seconds: 90, category_seconds: 15, question_seconds: 60, read_seconds: 2, reveal_seconds: 3, avatars: true,
   types: ['classic', 'odd', 'random', 'classic', 'classic', 'classic', 'classic', 'classic', 'classic', 'classic'] };
-const types = /** @type {const} */ (['classic', 'odd', 'truefalse', 'number', 'order', 'sort', 'compare', 'about', 'random']);
+const types = /** @type {const} */ (['classic', 'odd', 'truefalse', 'number', 'order', 'sort', 'compare', 'about', 'draw', 'random']);
 const options = { rounds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], per_round: [3, 5, 10, 15, 20], suggest_seconds: [30, 60, 90, 120], category_seconds: [5, 10, 15, 30], question_seconds: [10, 15, 20, 30, 45, 60], read_seconds: [1, 2, 3, 4, 5], reveal_seconds: [1, 3, 5, 7] };
 const rnd = { round: 2, rounds: 3, kind: /** @type {const} */ ('classic') };
 const cats = ['Space and astronomy', 'Movies of the 90s', 'Video games', 'Mythology'];
@@ -62,11 +62,22 @@ const aboutMsg = { type: 'about', ...aboutRnd, seconds: 30, asks: [
   { subject: PLAYERS[0], q: 'Which superpower would you pick?', options: ['Flying', 'Invisibility', 'Reading minds', 'Teleporting'] }] };
 /** @type {QuestionMsg} */
 const qAbout = { ...question, ...aboutRnd, category: 'Who knows them best', text: 'What would you rather eat for the rest of your life?', options: pizza, subject: PLAYERS[0] };
+/** @type {QuestionMsg} */
+const qDraw = { ...question, kind: 'draw', text: '', options: ['Jupiter', 'Saturn', 'Moon', 'Ball'], subject: PLAYERS[0] };
+/** A quick sketch of Saturn: the planet and its ring @type {import('./types').Stroke[]} */
+const saturn = [
+  { c: 0, p: Array.from({ length: 41 }, (_, i) => /** @type {[number, number]} */ ([.5 + .17 * Math.cos(i / 40 * 2 * Math.PI), .5 + .22 * Math.sin(i / 40 * 2 * Math.PI)])) },
+  { c: 1, p: Array.from({ length: 41 }, (_, i) => /** @type {[number, number]} */ ([.5 + .34 * Math.cos(i / 40 * 2 * Math.PI), .52 + .08 * Math.sin(i / 40 * 2 * Math.PI)])) },
+];
 const KIND_SCREENS = /** @type {{ key: string, label: string, only?: 'host' | 'player', msgs: ServerMsg[] }[]} */ ([
   { key: 'about', label: 'About me', msgs: [aboutMsg, { type: 'answered', players: PLAYERS.map((p, i) => ({ ...p, done: i % 2 === 0 })) }] },
   { key: 'q_about', label: 'Q About', msgs: [qAbout, { type: 'answered', players: PLAYERS.slice(1).map((p, i) => ({ ...p, done: i < 1 })) }] },
   { key: 'q_about_me', label: 'Q About me', only: 'player', msgs: [{ ...qAbout, subject: PLAYERS[1] }] },
   { key: 'r_about', label: 'R About', msgs: [qAbout, { type: 'reveal', kind: 'about', correct: 1, counts: [1, 2, 0, 0], explanation: '', scores, you: { ...you, correct: true, delta: 870 } }] },
+  { key: 'q_draw', label: 'Q Draw', msgs: [qDraw, { type: 'strokes', strokes: saturn }, { type: 'answered', players: PLAYERS.slice(1).map((p, i) => ({ ...p, done: i < 1 })) }] },
+  { key: 'q_draw_me', label: 'Q Draw me', only: 'player', msgs: [{ ...qDraw, subject: PLAYERS[1] }, { type: 'secret', word: 'Saturn' }, { type: 'strokes', strokes: saturn }] },
+  { key: 'r_draw', label: 'R Draw', msgs: [qDraw, { type: 'reveal', kind: 'draw', correct: 1, counts: [1, 2, 0, 0], strokes: saturn, wait: 3,
+    explanation: "Saturn's rings are only tens of metres thick.", scores, you: { ...you, correct: true, delta: 910 } }] },
   { key: 'r_about_me', label: 'R About me', only: 'player', msgs: [{ ...qAbout, subject: PLAYERS[1] }, { type: 'reveal', kind: 'about', correct: 1, counts: [1, 2, 0, 0], explanation: '', scores,
     you: { ...you, answered: false, delta: 666, spotlight: true, right: 2, of: 3 } }] },
   { key: 'q_tf', label: 'Q T/F', msgs: [qTf] },

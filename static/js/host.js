@@ -1,6 +1,6 @@
 // @ts-check
 // TV screen: lobby with QR code, then questions, reveals and final scores
-import { $, esc, t, num, loadInfo, shape, avatar, suggestedBy, startTimer, stopTimer, send, connect, fsSupported, goFullscreen, isSprint, roundSize } from './common.js';
+import { $, esc, t, num, loadInfo, shape, avatar, suggestedBy, startTimer, stopTimer, send, connect, fsSupported, goFullscreen, isSprint, roundSize, paintStrokes } from './common.js';
 
 /** @typedef {import('./types').ServerMsg} ServerMsg */
 /** @typedef {import('./types').QuestionMsg} QuestionMsg */
@@ -102,7 +102,7 @@ function setup(m) {
   const nums = (key, fmt) => o[key].map(v => ({ v: String(v), label: fmt(v), on: v === st[key] }));
   const total = st.rounds * st.per_round, types = st.types.slice(0, st.rounds);
   /** Reading + answer time + reveal per question; a sprint is one 60 s set @param {string} k */
-  const play = k => isSprint(k) ? 75 : st.per_round * (st.read_seconds + (k === 'truefalse' ? Math.max(5, st.question_seconds / 2) : st.question_seconds) + st.reveal_seconds + 4);
+  const play = k => isSprint(k) ? 75 : st.per_round * (st.read_seconds + (k === 'truefalse' ? Math.max(5, st.question_seconds / 2) : k === 'draw' ? Math.max(60, st.question_seconds) : st.question_seconds) + st.reveal_seconds + 4);
   // Rough upper bound: suggestions + tidying once, vote + generation per round, playing the round, standings between rounds
   const minutes = Math.ceil((st.suggest_seconds + 10 + st.rounds * (st.category_seconds + 20) + types.reduce((a, k) => a + play(k), 0) + (st.rounds - 1) * 8) / 60);
   app.innerHTML = `<div class="top" style="min-height:0">
@@ -165,8 +165,22 @@ function roundEnd(m) {
   prev = m.scores;
 }
 
-/** The question; in sprints also the buckets (sort) and everyone's live progress, filled in by 'answered'. @param {QuestionMsg} m */
+/** Draw rounds: the drawing so far, as it arrives from the drawer's phone @type {import('./types').Stroke[]} */
+let board = [];
+const boardCanvas = () => /** @type {HTMLCanvasElement | null} */ ($('board'));
+
+/** The question; in sprints also the buckets (sort) and everyone's live progress, filled in by 'answered'.
+ * In draw rounds the drawing, which 'ink' and 'strokes' fill in. @param {QuestionMsg} m */
 function question(m) {
+  if (m.kind === 'draw') {
+    board = [];
+    app.innerHTML = `<div class="top">${qPills(m)}${ring(132)}</div>
+      <div class="drawq"><canvas id="board" class="board" width="1040" height="780"></canvas>
+        <div class="col side">${m.subject ? `<div class="spot">${avatar(m.subject, 120, 'pop')}<b>${t('drawing_tv', { name: esc(m.subject.name) })}</b></div>` : ''}
+          <div class="who" id="who"></div><span class="muted" id="ans"></span></div></div>`;
+    paintStrokes(boardCanvas(), board);
+    return startTimer(m.seconds, m.lock);
+  }
   const size = m.text.length > 90 ? 's' : m.text.length > 60 ? 'm' : '';
   const sprint = isSprint(m.kind) ? `<div class="sprint">
       ${m.buckets ? `<div class="row buckets">${m.buckets.map((b, i) => `<span class="ans a${i ? 3 : 0}">${esc(b)}</span>`).join('<span class="muted">/</span>')}</div>` : ''}
@@ -197,7 +211,7 @@ function reveal(q, m) {
   }).join('');
   prev = m.scores;
   app.innerHTML = `${qPills(q)}
-    <h1 class="qsmall">${esc(q.text)}</h1>
+    <h1 class="qsmall">${esc(q.kind === 'draw' && m.correct !== undefined ? q.options[m.correct] : q.text)}</h1>
     <div class="rv">
       <div class="col grow">
         ${answerBox(q, m)}
@@ -205,11 +219,18 @@ function reveal(q, m) {
       </div>
       <aside class="lb"><h2>${t('leaderboard')}</h2>${rows}<div class="grow"></div><p class="muted holdtv">${t('hold_tv')}</p></aside>
     </div>`;
+  if (m.strokes) paintStrokes(boardCanvas(), board = m.strokes);
   setTimeout(animateBoard, 900);
 }
 
 /** The right answer and how everyone did, per round type. @param {QuestionMsg} q @param {RevealMsg} m */
 function answerBox(q, m) {
+  if (m.kind === 'draw') {
+    const counts = m.counts || [];
+    return `<div class="drawrv"><canvas id="board" class="board" width="640" height="480"></canvas>
+      <div class="olist grow">${q.options.map((o, i) => `<div class="ans a${i} ${i === m.correct ? 'right pop' : 'dim'}">${shape(i, 36)}
+        <span class="grow">${esc(o)}</span><span class="votes">${counts[i] || 0}</span></div>`).join('')}</div></div>`;
+  }
   if (m.kind === 'number' && m.answer !== undefined) {
     const unit = m.unit ? ` ${esc(m.unit)}` : '';
     return `<div class="numans pop">${num(m.answer)}${unit}</div>
@@ -362,6 +383,12 @@ function on(m) {
       setText('ans', t('answered', { n: m.players.filter(p => p.done).length, total: m.players.length }));
       break;
     case 'reveal': if (cur) reveal(cur, m); break;
+    case 'ink':
+      // Repainted whole: drawing a line piece by piece paints the overlaps twice, so it would look bolder than later
+      (board[m.s] || (board[m.s] = { c: m.c, p: [] })).p.push(...m.p);
+      paintStrokes(boardCanvas(), board);
+      break;
+    case 'strokes': board = m.strokes; paintStrokes(boardCanvas(), board); break;
     case 'round_end': roundEnd(m); break;
     case 'scores': stopTimer(); final(m); break;
     case 'error':

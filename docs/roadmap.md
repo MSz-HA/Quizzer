@@ -92,6 +92,14 @@ The host picks a type for each round on the setup screen: **Classic** (default),
 - **Counts as correct** (streaks, awards): Classic/Odd/True-false: the right answer; Closest number: the closest guess; Order: all 4 in place; sprints: at least 75% right. In sprints the awards' answer time is the average seconds per pick.
 - Each question carries a `kind`; saved questions and `mock_questions.json` keep it, so dev mode has samples of every type, and the dev bar previews each type's question and reveal.
 
+## Phase 5: Pictionary round (in progress, on its own branch)
+- A new round type, **Pictionary** ("Kalambury rysunkowe"), picked per round on the setup screen like the others. The round keeps the category vote: Claude writes one word per question on the voted category (concrete things that a non-artist can draw in a minute), plus 3 decoys that would look similar in a quick sketch, and a fun fact for the reveal. The question bank keeps words from repeating. Dev mode has mock words.
+- Each question one player draws: the connected player who has drawn least this game (random among ties). Only the drawer's phone gets the word (a separate `secret` message); the TV and the other phones never see it before the reveal.
+- The drawer's phone shows the word, a 4:3 drawing pad, 4 pen colours, undo and clear. Points are sent every 40 ms as 0–1 coordinates (`ink` messages), the server keeps the whole drawing and relays it, and the TV draws along live. Undo and clear send the whole drawing again (`strokes`). A TV or drawer that reconnects mid-drawing gets the drawing (and the drawer the word) again.
+- The others guess once on the 4 answer tiles, any time after the read time; faster right guesses score more. The drawer scores 1000 × the share of guessers who got it, and their streak is left alone. Time per drawing: the answer time, but at least 60 s.
+- The reveal shows the drawing next to the 4 options with their votes, the word as the heading and the fun fact.
+- To try on real phones: drawing feel (smoothness, no page scrolling or zooming, especially iOS Safari), pad size in portrait, and whether 60 s is enough.
+
 ## Verification
 - **Phase 0:** review the mockups and agree on the look before coding.
 - **Each phase:** run `python main.py --dev` with `QUESTION_SECONDS=10`, `SUGGEST_SECONDS=30` and `CATEGORY_SECONDS=5` in `.env`, open `/host` in a desktop browser and `/` in 2–3 browser profiles.

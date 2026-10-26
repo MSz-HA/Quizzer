@@ -32,13 +32,18 @@ RESULT_SECONDS = 4  # vote result on screen; questions are already being generat
 # each pair (e.g. the older movie); the winner stays and faces the next item. Sort and compare are sprints: one set
 # per round, played at each phone's own pace against SPRINT_SECONDS. About ("who knows them best"): players first
 # answer questions about themselves from about_questions.json (no category vote, no Claude), then the others guess
-KINDS = ("classic", "odd", "truefalse", "number", "order", "sort", "compare", "about")
-CHOICE_KINDS = ("classic", "odd", "truefalse", "about")  # answered by tapping one option
+# Draw: Pictionary, one player draws a word only their phone shows, the drawing appears live on the TV, the others
+# pick the word from 4 options
+KINDS = ("classic", "odd", "truefalse", "number", "order", "sort", "compare", "about", "draw")
+CHOICE_KINDS = ("classic", "odd", "truefalse", "about", "draw")  # answered by tapping one option
 SPRINT_KINDS = ("sort", "compare")  # answered by many picks, one per item (sort) or pair (compare)
 SORT_ITEMS = 20
 COMPARE_ITEMS = 16
 SPRINT_SECONDS = 60
 ABOUT_SECONDS = 15  # per question, for answering about yourself
+DRAW_SECONDS = 60  # least time for a drawing, whatever the answer time
+INK_COLORS = 4  # pen colours on the drawer's phone
+MAX_POINTS = 20000  # per drawing, so a misbehaving phone can't flood the TV
 TRUE_FALSE = {"en": ["True", "False"], "pl": ["Prawda", "Fałsz"]}[LANG]
 
 # Values the host can pick on the TV's setup screen (the .env defaults are always allowed too)
@@ -109,6 +114,8 @@ class State:
     answers = {}      # pid -> (answer, seconds); in sprints pid -> {pick index: (pick, seconds)}
     asks = []         # about rounds: this round's questions, each about one player ("subject")
     mine = {}         # about rounds: index in asks -> the option its subject picked
+    drawn = {}        # draw rounds: pid -> drawings made this game, to take turns
+    strokes = []      # draw rounds: the current drawing, [{"c": colour index, "p": [[x, y], ...]}] with x, y in 0..1
     q = None
     t0 = 0.0
 
@@ -299,6 +306,12 @@ PROMPTS = {
                 '"12 May 1950").',
                 obj(q=STR, higher={"type": "boolean"},
                     items={"type": "array", "items": obj(text=STR, value=NUM, label=STR)})),
+    "draw": ("words to draw in Pictionary",
+             '"q" is a word or short phrase (max 30 chars) on the topic that a non-artist can draw in a minute: '
+             "concrete things, animals, places, famous objects or actions, nothing abstract. \"decoys\" are 3 other "
+             "drawable words on the topic that would look similar in a quick sketch (like cat: lynx, fox, dog), so "
+             "guessers have to look at the details. The explanation is a fun fact about the word.",
+             obj(q=STR, decoys={"type": "array", "items": STR})),
 }
 
 
@@ -367,6 +380,13 @@ def clean(data, cat, kind="classic"):
                 src.update(higher=d["higher"], items=items)
                 items, key = chain(items, d["higher"])
                 q.update(items=items, higher=d["higher"], key=key)
+            elif kind == "draw":
+                decoys = [str(o) for o in d["decoys"]]
+                opts = [src["q"], *decoys]
+                assert len(decoys) == 3 and len({o.casefold() for o in opts}) == 4
+                src["decoys"] = decoys
+                opts = random.sample(opts, 4)
+                q.update(options=opts, answer=opts.index(src["q"]))
             out.append(q)
         except (KeyError, IndexError, ValueError, AssertionError, TypeError):
             continue
@@ -530,7 +550,7 @@ def score(q, seconds, worth):
                 ok.add(pid)
         show = {"correct": q["answer"], "counts": [sum(1 for i, _ in ans.values() if i == k)
                                                    for k in range(len(q["options"]))]}
-        if kind == "about":  # the player it is about scores for being known: 1000 if every guess was right
+        if kind in ("about", "draw"):  # the player it is about (or the drawer): 1000 if every guess was right
             deltas[q["subject"]] = 1000 * len(ok) // len(ans) if ans else 0
             mine[q["subject"]] = {"spotlight": True, "right": len(ok), "of": len(ans)}
     elif kind == "number":
@@ -609,7 +629,8 @@ async def reveal(q, seconds, worth, wait):
                   "kind": q["kind"], "answer": q.get("answer"), "unit": q.get("unit", ""), "subject": q.get("subject"),
                   "detail": detail})
     sc = board()
-    base = {"type": "reveal", "kind": q["kind"], "explanation": q["explanation"], "scores": sc, "wait": wait, **show}
+    base = {"type": "reveal", "kind": q["kind"], "explanation": q["explanation"], "scores": sc, "wait": wait, **show,
+            **({"strokes": g.strokes} if q["kind"] == "draw" else {})}
     g.last = base
     await to_hosts(base)
     names = [s["name"] for s in sc]
@@ -658,7 +679,7 @@ def award_facts():
         n, pid = max((rs.count(None), pid) for pid, rs in runs.items())
         if n >= 2:
             out.append(("asleep", pid, {"n": n}))
-    trivia = [e for e in log if e["kind"] != "about"]  # questions about a player aren't hard or easy, see enigma
+    trivia = [e for e in log if e["kind"] not in ("about", "draw")]  # about a player or a drawing, not hard or easy
     none = [e["q"] for e in trivia if e["res"] and not any(ok for ok, _ in e["res"].values())]
     if none:
         out.append(("brain_buster", None, {"n": len(none), "q": random.choice(none)}))
@@ -794,6 +815,25 @@ def make_awards():
              "player": public(who(pid)) if who(pid) else None} for k, pid, f in chosen]
 
 
+def next_drawer():
+    """The connected player who has drawn least this game, at random among ties."""
+    least = min(g.drawn.get(pid, 0) for pid in active())
+    pid = random.choice([pid for pid in active() if g.drawn.get(pid, 0) == least])
+    g.drawn[pid] = g.drawn.get(pid, 0) + 1
+    return pid
+
+
+async def send_drawing(ws, full=True):
+    """The current drawing; to the drawer also the word. Sent when a draw question starts (word only) and to a
+    screen that reconnects mid-drawing."""
+    q = g.q
+    if g.accepting == "answer" and q and q["kind"] == "draw":
+        if ws is g.players[q["subject"]]["ws"]:
+            await send(ws, {"type": "secret", "word": q["q"]})
+        if full:
+            await send(ws, {"type": "strokes", "strokes": g.strokes})
+
+
 def about_questions(n):
     """n questions for an about round, each about one player, taking turns in random order. Questions don't
     repeat within a game while there are unused ones."""
@@ -822,7 +862,7 @@ async def ask_about(rnd, questions):
 
 async def run_game():
     s = dict(g.settings)  # this game's settings
-    g.phase, g.used, g.log = "running", [], []
+    g.phase, g.used, g.log, g.drawn = "running", [], [], {}
     asked = 0
     # 1. Before the first round everyone suggests a category, once per game. Claude tidies them in one call
     g.cats, g.surprised, g.accepting = {}, set(), "category"
@@ -849,7 +889,7 @@ async def run_game():
         rnd = {"round": r, "rounds": s["rounds"], "kind": kind}
         total = 1 if kind in SPRINT_KINDS else s["per_round"]  # a sprint round is one set of items
         seconds = (SPRINT_SECONDS if kind in SPRINT_KINDS else max(5, s["question_seconds"] // 2) if kind == "truefalse"
-                   else s["question_seconds"])
+                   else max(DRAW_SECONDS, s["question_seconds"]) if kind == "draw" else s["question_seconds"])
         if kind == "about":  # built-in questions about the players, no vote
             questions = about_questions(total)
             cat = questions[0]["cat"] if questions else ""
@@ -867,12 +907,17 @@ async def run_game():
             await hold()
         # 3. Play the round, moving on only when a player holds Continue
         for i, q in enumerate(questions):
-            g.answers, g.q, g.t0, g.accepting = {}, q, time.monotonic() + s["read_seconds"], "answer"
+            if kind == "draw":
+                q["subject"] = next_drawer()
+            g.answers, g.q, g.t0, g.accepting, g.strokes = {}, q, time.monotonic() + s["read_seconds"], "answer", []
             await bc({"type": "question", **rnd, "n": i + 1, "total": len(questions), "category": q["cat"],
-                      "text": q["q"], "options": q.get("options", []), "unit": q.get("unit", ""),
+                      "text": "" if kind == "draw" else q["q"],  # the word to draw goes to the drawer only
+                      "options": q.get("options", []), "unit": q.get("unit", ""),
                       **{k: q[k] for k in ("buckets", "items", "higher", "key") if k in q},
                       **({"subject": public(g.players[q["subject"]])} if "subject" in q else {}),
                       "seconds": seconds, "lock": s["read_seconds"]})
+            if kind == "draw":
+                await send_drawing(g.players[q["subject"]]["ws"], full=False)
             await to_hosts(answered_msg())
             await wait_for(s["read_seconds"] + seconds, lambda: all(done(pid) for pid in guessers()))
             await reveal(q, seconds, s["per_round"] * 1000, s["reveal_seconds"])
@@ -934,6 +979,7 @@ async def ws_endpoint(ws: WebSocket, role: str = "player"):
         await send(ws, setup_msg() if g.phase == "setup" else g.last or lobby_msg())
         if g.accepting in ("answer", "about"):
             await send(ws, answered_msg())
+            await send_drawing(ws)
     idle = lambda: g.task is None or g.task.done()
     try:
         while True:
@@ -971,6 +1017,7 @@ async def ws_endpoint(ws: WebSocket, role: str = "player"):
                     await show_lobby()
                 else:
                     await send(ws, g.last)
+                    await send_drawing(ws)
             elif pid in g.players and t == "category" and g.accepting == "category":
                 text = fresh_topics(1)[0] if m.get("surprise") else str(m.get("text", ""))
                 text = " ".join(text.split())[:40]
@@ -1016,6 +1063,22 @@ async def ws_endpoint(ws: WebSocket, role: str = "player"):
                         and type(b) is int and 0 <= b < len(g.asks[i]["options"]):
                     g.mine[i] = b
                     await to_hosts(answered_msg())
+            elif pid in g.players and t in ("ink", "undo", "clear") and g.accepting == "answer" \
+                    and g.q["kind"] == "draw" and pid == g.q["subject"]:  # the drawer drawing
+                k, c, pts = m.get("s"), m.get("c"), m.get("p")  # stroke index (a new one or the last), colour, points
+                if t == "ink" and type(k) is int and max(0, len(g.strokes) - 1) <= k <= len(g.strokes) \
+                        and c in range(INK_COLORS) \
+                        and type(pts) is list and len(pts) <= 200 \
+                        and sum(len(k["p"]) for k in g.strokes) + len(pts) <= MAX_POINTS \
+                        and all(type(xy) is list and len(xy) == 2 and all(type(v) in (int, float) and 0 <= v <= 1 for v in xy)
+                                for xy in pts):
+                    if k == len(g.strokes):
+                        g.strokes.append({"c": c, "p": []})
+                    g.strokes[k]["p"] += pts
+                    await to_hosts({"type": "ink", "s": k, "c": g.strokes[k]["c"], "p": pts})
+                elif t in ("undo", "clear"):
+                    g.strokes = g.strokes[:-1] if t == "undo" else []
+                    await to_hosts({"type": "strokes", "strokes": g.strokes})
             elif pid in g.players and t == "continue" and g.accepting == "continue":
                 g.go.set()
     except (WebSocketDisconnect, RuntimeError, json.JSONDecodeError):
