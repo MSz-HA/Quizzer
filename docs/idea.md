@@ -31,6 +31,3 @@ A place to collect ideas for improving the game. Nothing here is committed to. I
 ### Practical
 - **Rejoin after phone sleep:** already works via `pid` in localStorage; show "Welcome back" so players trust it.
 - **Big-text / high-contrast mode** for the TV in bright rooms.
-
-### Categories
-- **Dynamically suggested categories:**  In the tidying up step, when LLM is asked to rephrase categories suggested by user, instruct AI to suggest additional n more quirky categories: funny, with name having more meanings than one etc.

@@ -98,11 +98,11 @@ function setup(m) {
   /** @param {string} key @param {string} label @param {{ v: string, label: string, on: boolean }[]} choices */
   const row = (key, label, choices) => `<div class="srow"><span class="slabel">${label}</span><div class="row">${choices.map(c =>
     `<button class="count${c.on ? ' on' : ''}" data-action="set" data-k="${key}" data-v="${c.v}" aria-pressed="${c.on}">${c.label}</button>`).join('')}</div></div>`;
-  /** @param {'rounds' | 'per_round' | 'suggest_seconds' | 'category_seconds' | 'question_seconds'} key @param {(v: number) => string} fmt */
+  /** @param {keyof import('./types').SettingOptions} key @param {(v: number) => string} fmt */
   const nums = (key, fmt) => o[key].map(v => ({ v: String(v), label: fmt(v), on: v === st[key] }));
   const total = st.rounds * st.per_round, types = st.types.slice(0, st.rounds);
-  /** Answer time + reveal per question; a sprint is one 60 s set @param {string} k */
-  const play = k => isSprint(k) ? 75 : st.per_round * ((k === 'truefalse' ? Math.max(5, st.question_seconds / 2) : st.question_seconds) + 7);
+  /** Reading + answer time + reveal per question; a sprint is one 60 s set @param {string} k */
+  const play = k => isSprint(k) ? 75 : st.per_round * (st.read_seconds + (k === 'truefalse' ? Math.max(5, st.question_seconds / 2) : st.question_seconds) + st.reveal_seconds + 4);
   // Rough upper bound: suggestions + tidying once, vote + generation per round, playing the round, standings between rounds
   const minutes = Math.ceil((st.suggest_seconds + 10 + st.rounds * (st.category_seconds + 20) + types.reduce((a, k) => a + play(k), 0) + (st.rounds - 1) * 8) / 60);
   app.innerHTML = `<div class="top" style="min-height:0">
@@ -116,8 +116,9 @@ function setup(m) {
         ${row('suggest_seconds', t('s_suggest_time'), nums('suggest_seconds', secs))}
         ${row('category_seconds', t('s_cat_time'), nums('category_seconds', secs))}
         ${row('question_seconds', t('s_q_time'), nums('question_seconds', secs))}
+        ${row('read_seconds', t('s_read_time'), nums('read_seconds', secs))}
+        ${row('reveal_seconds', t('s_reveal_time'), nums('reveal_seconds', secs))}
         ${row('avatars', t('s_avatars'), [{ v: 'true', label: t('on'), on: st.avatars }, { v: 'false', label: t('off'), on: !st.avatars }])}
-        ${row('ai_awards', t('s_awards'), [{ v: 'false', label: t('aw_templates'), on: !st.ai_awards }, { v: 'true', label: t('aw_claude'), on: st.ai_awards }])}
       </section>
       <aside class="summary">
         <div class="bignum">${st.rounds} × ${st.per_round}</div>
@@ -377,7 +378,7 @@ app.addEventListener('click', e => {
   switch (b.dataset.action) {
     case 'set': {
       const k = b.dataset.k, v = b.dataset.v;
-      if (k === 'avatars' || k === 'ai_awards') send({ type: 'settings', settings: { [k]: v === 'true' } });
+      if (k === 'avatars') send({ type: 'settings', settings: { [k]: v === 'true' } });
       else if (k?.startsWith('type') && settings) {
         const types = [...settings.types];
         types[Number(k.slice(4))] = /** @type {Settings['types'][number]} */ (v);

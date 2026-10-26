@@ -41,6 +41,7 @@ let cur = null;
  */
 function show(html, { mood = '', plain = false } = {}) {
   clearTimeout(holdTimer);
+  clearTimeout(waitTimer);
   document.body.dataset.mood = mood;
   document.body.classList.toggle('plain', plain);
   app.innerHTML = html;
@@ -51,10 +52,13 @@ const hdr = (left, mid = '') => `<div class="hdr"><span>${left}</span><span clas
   <div class="bar thin"><i data-bar></i></div>`;
 // Round Continue button: the game moves on once anyone holds it for HOLD_MS, while a ring fills around it
 const HOLD_MS = 1000;
-let holdTimer = 0;
-const holdBtn = () => `<div class="cont"><button class="hold" data-hold><svg viewBox="0 0 100 100" aria-hidden="true">
+let holdTimer = 0, waitTimer = 0;
+/** @param {number} [wait] seconds the button stays disabled, see allowHold() */
+const holdBtn = (wait = 0) => `<div class="cont"><button class="hold" data-hold${wait ? ' disabled' : ''}><svg viewBox="0 0 100 100" aria-hidden="true">
     <circle class="track" cx="50" cy="50" r="46"/><circle class="fill" cx="50" cy="50" r="46" pathLength="100"/></svg>${t('continue')}</button>
   <p class="hint">${t('hold_hint')}</p></div>`;
+/** Enable the Continue button after `wait` seconds (the server ignores Continue until then) @param {number} wait */
+const allowHold = wait => { waitTimer = window.setTimeout(() => app.querySelector('[data-hold]')?.removeAttribute('disabled'), wait * 1000); };
 /** @param {string} title @param {string} [text] */
 const msg = (title, text = '') => show(`<div class="center mid"><h1 class="title">${title}</h1><p class="muted" style="font-size:19px">${text}</p></div>`);
 
@@ -327,7 +331,10 @@ function pick(b) {
 /** @param {RevealMsg} m */
 function result(m) {
   const y = m.you;
-  if (!y) return show(`<div class="center mid"><h1 class="title">${t('round_over')}</h1><p class="muted" style="font-size:19px">${t('look_big')}</p>${holdBtn()}</div>`);
+  if (!y) {
+    show(`<div class="center mid"><h1 class="title">${t('round_over')}</h1><p class="muted" style="font-size:19px">${t('look_big')}</p>${holdBtn(m.wait)}</div>`);
+    return allowHold(m.wait);
+  }
   const kind = y.correct || (y.spotlight && y.right) ? 'correct' : y.answered || y.spotlight ? 'wrong' : 'slow';
   const icon = {
     correct: '<polyline points="4,12.5 9.5,18 20,6.5"/>',
@@ -350,7 +357,8 @@ function result(m) {
       ${y.correct && y.streak >= 3 ? `<div class="delta">🔥 ${t('in_a_row', { n: y.streak })}</div>` : ''}</div>
     <div class="stats"><div><small>${t('score')}</small><b>${num(y.score)}</b></div>
       <div><small>${t('rank')}</small><b>#${y.rank} / ${m.scores.length}</b></div></div>
-    ${holdBtn()}`, { mood: kind });
+    ${holdBtn(m.wait)}`, { mood: kind });
+  allowHold(m.wait);
 }
 
 /** @param {ServerMsg} m */
@@ -446,7 +454,7 @@ let pressed = /** @type {Element | null} */ (null);
 app.addEventListener('pointerdown', e => {
   pressed = /** @type {Element} */ (e.target).closest('[data-action]');
   const b = /** @type {HTMLElement | null} */ (/** @type {Element} */ (e.target).closest('[data-hold]'));
-  if (!b || b.classList.contains('done')) return;
+  if (!b || b.classList.contains('done') || b.hasAttribute('disabled')) return;
   b.setPointerCapture(e.pointerId);  // keep counting if the finger drifts off the button
   b.classList.add('on');
   holdTimer = window.setTimeout(() => {
