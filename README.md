@@ -15,8 +15,7 @@ python main.py
   timers, avatars); **Open lobby** then shows the QR code.
 - Players: scan the QR code on the host screen (phones must be on the same network)
 
-End-of-game awards use the sentence templates in `awards.json`. On the setup screen the host can
-let Claude write them instead (one extra API request per game).
+End-of-game awards use the sentence templates in `awards.json`.
 
 ## Dev mode
 

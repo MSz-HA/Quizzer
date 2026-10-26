@@ -17,8 +17,8 @@ const PLAYERS = [
 /** The phone page's identity while previewing (not saved to localStorage) */
 export const ME = PLAYERS[1];
 const scores = PLAYERS.map((p, i) => ({ ...p, score: [4200, 3650, 2900, 1500][i], streak: [4, 1, 0, 2][i], best: [5, 3, 2, 2][i], correct: [8, 7, 6, 3][i] }));
-const settings = { rounds: 3, per_round: 5, suggest_seconds: 90, category_seconds: 15, question_seconds: 60, avatars: true, ai_awards: false };
-const options = { rounds: [1, 2, 3, 4, 5], per_round: [3, 5, 10, 15, 20], suggest_seconds: [30, 60, 90, 120], category_seconds: [5, 10, 15, 30], question_seconds: [10, 15, 20, 30, 45, 60] };
+const settings = { rounds: 3, per_round: 5, suggest_seconds: 90, category_seconds: 15, question_seconds: 60, read_seconds: 2, reveal_seconds: 3, avatars: true };
+const options = { rounds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], per_round: [3, 5, 10, 15, 20], suggest_seconds: [30, 60, 90, 120], category_seconds: [5, 10, 15, 30], question_seconds: [10, 15, 20, 30, 45, 60], read_seconds: [1, 2, 3, 4, 5], reveal_seconds: [1, 3, 5, 7] };
 const rnd = { round: 2, rounds: 3 };
 const cats = ['Space and astronomy', 'Movies of the 90s', 'Video games', 'Mythology'];
 const by = [[PLAYERS[0]], [], [PLAYERS[2], PLAYERS[3]], []];
@@ -30,7 +30,7 @@ const sent = { type: 'cats', list: cats.slice(0, 3), submitted: 3, players: 4 };
 const question = { type: 'question', ...rnd, n: 3, total: 5, category: cats[0], text: 'Which planet has the most known moons?',
   options: ['Jupiter', 'Saturn', 'Uranus', 'Neptune'], seconds: 60, lock: 0.6 };
 /** @type {RevealMsg} */
-const reveal = { type: 'reveal', correct: 1, explanation: 'Saturn has over 140 confirmed moons.', counts: [2, 1, 0, 1], scores,
+const reveal = { type: 'reveal', correct: 1, explanation: 'Saturn has over 140 confirmed moons.', counts: [2, 1, 0, 1], scores, wait: 3,
   you: { answered: true, correct: true, delta: 820, score: 3650, rank: 2, streak: 3 } };
 
 /** Each screen is the messages the server would have sent to get there. @type {{ key: string, label: string, only?: 'host' | 'player', msgs: ServerMsg[] }[]} */

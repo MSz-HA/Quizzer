@@ -4,11 +4,11 @@
 /** `avatar` is an emoji, or '' to show the name's initial */
 export interface Player { name: string; avatar: string; color: string }
 /** Game settings, changed by the host on the TV's setup screen */
-/** `ai_awards`: Claude writes the end-of-game awards instead of the templates in awards.json */
 /** `suggest_seconds`: suggesting categories before round 1; `category_seconds`: voting on a category each round */
-export interface Settings { rounds: number; per_round: number; suggest_seconds: number; category_seconds: number; question_seconds: number; avatars: boolean; ai_awards: boolean }
+/** `read_seconds`: reading the question before the answers show on phones; `reveal_seconds`: reading the answer before Continue works */
+export interface Settings { rounds: number; per_round: number; suggest_seconds: number; category_seconds: number; question_seconds: number; read_seconds: number; reveal_seconds: number; avatars: boolean }
 /** Allowed values for each numeric setting */
-export type SettingOptions = { [K in Exclude<keyof Settings, 'avatars' | 'ai_awards'>]: number[] };
+export type SettingOptions = { [K in Exclude<keyof Settings, 'avatars'>]: number[] };
 /** `players` are the ones connected right now; avatar pickers are shown only when settings.avatars is on;
  * `dev` is true with --dev (shows the dev bar) */
 export interface Info {
@@ -54,6 +54,8 @@ export type AnsweredMsg = { type: 'answered'; players: (Player & { done: boolean
 /** `you` is only present in the copy sent to each player. The game waits for a player to hold Continue */
 export type RevealMsg = {
   type: 'reveal'; correct: number; explanation: string; counts: number[]; scores: Score[]; you?: You;
+  /** Seconds before Continue works, so everyone can read the answer */
+  wait: number;
 };
 /** Standings between rounds; the next round starts when a player holds Continue */
 export type RoundEndMsg = RoundInfo & { type: 'round_end'; scores: Score[] };
