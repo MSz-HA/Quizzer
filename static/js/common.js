@@ -50,6 +50,20 @@ const STRINGS = {
     s_awards: 'End-of-game awards', aw_templates: 'Ready-made', aw_claude: 'Written by Claude (uses API)',
     your_award: 'You won: {list}',
     continue: 'Continue', hold_hint: 'Hold for 1 second to continue', hold_tv: 'Hold Continue on any phone to go on',
+    k_classic: 'Classic', k_odd: 'Odd one out', k_truefalse: 'True or false', k_number: 'Closest number', k_order: 'Put in order',
+    k_sort: 'Sort it', k_compare: 'Compare', k_random: 'Random', s_type: 'Round {n}: type',
+    r_classic: 'Pick the right answer. The faster, the more points.',
+    r_odd: "Three of the four have something in common. Find the one that doesn't belong.",
+    r_truefalse: 'True or false? Less time than usual!', r_number: 'Type a number on your phone. The closest guess wins.',
+    r_order: 'Tap the 4 items on your phone in the right order.',
+    r_sort: 'Sort the items into 2 groups on your phone, as many as you can in time.',
+    r_compare: 'Pick the winner of each pair on your phone. The winner stays and faces the next one.',
+    your_guess: 'Your guess', you_guessed: 'You guessed {v}', closest: 'Closest!', not_closest: 'Someone was closer',
+    tap_order: 'Tap them in order. Tap again to undo.', placed: '{n} of 4 in place', n_right: '{n} of {total} right',
+    all_done: 'All done!', play_phone: 'Play on your phone', guesses: 'Guesses, closest first', right_order: 'The right order',
+    k_about: 'Who knows them best', r_about: 'First answer a few questions about yourself on your phone. Then guess what the others picked.',
+    about_you: 'About you', about_tv: 'Answer the questions about yourself on your phone', about_none: 'No questions about you this round.',
+    spotlight: "It's about you!", spotlight_sub: 'The others are guessing your answer', known: '{n} of {total} knew you',
   },
   pl: {
     connecting: 'Łączenie…', reconnecting: 'Ponowne łączenie…', fullscreen: 'Pełny ekran',
@@ -88,6 +102,20 @@ const STRINGS = {
     s_awards: 'Nagrody na koniec gry', aw_templates: 'Gotowe teksty', aw_claude: 'Pisze Klaudiusz (zużywa API)',
     your_award: 'Zdobywasz: {list}',
     continue: 'Dalej', hold_hint: 'Przytrzymaj 1 sekundę, aby przejść dalej', hold_tv: 'Przytrzymaj „Dalej” na telefonie, aby przejść dalej',
+    k_classic: 'Klasyczna', k_odd: 'Co nie pasuje?', k_truefalse: 'Prawda czy fałsz', k_number: 'Najbliżej wygrywa', k_order: 'Ułóż po kolei',
+    k_sort: 'Rozdziel', k_compare: 'Porównaj', k_random: 'Losowo', s_type: 'Runda {n}: rodzaj',
+    r_classic: 'Wybierz dobrą odpowiedź. Im szybciej, tym więcej punktów.',
+    r_odd: 'Trzy z czterech mają coś wspólnego. Znajdź to, co nie pasuje.',
+    r_truefalse: 'Prawda czy fałsz? Czasu jest mniej niż zwykle!', r_number: 'Wpisz liczbę na telefonie. Wygrywa najbliższa.',
+    r_order: 'Stuknij 4 elementy na telefonie we właściwej kolejności.',
+    r_sort: 'Rozdziel elementy na 2 grupy na telefonie, ile zdążysz.',
+    r_compare: 'Wybierz zwycięzcę każdej pary na telefonie. Zwycięzca zostaje i mierzy się z kolejnym.',
+    your_guess: 'Twoja odpowiedź', you_guessed: 'Twoja odpowiedź: {v}', closest: 'Najbliżej!', not_closest: 'Ktoś był bliżej',
+    tap_order: 'Stukaj po kolei. Stuknij ponownie, aby cofnąć.', placed: 'Na swoim miejscu: {n} z 4', n_right: 'Dobrze: {n} z {total}',
+    all_done: 'Gotowe!', play_phone: 'Grajcie na telefonach', guesses: 'Odpowiedzi, od najbliższej', right_order: 'Właściwa kolejność',
+    k_about: 'Kto zna cię najlepiej', r_about: 'Najpierw odpowiedz na telefonie na kilka pytań o sobie. Potem zgaduj, co wybrali inni.',
+    about_you: 'O tobie', about_tv: 'Odpowiedzcie na telefonach na pytania o sobie', about_none: 'W tej rundzie nie ma pytań o ciebie.',
+    spotlight: 'To pytanie o ciebie!', spotlight_sub: 'Pozostali zgadują twoją odpowiedź', known: 'Znają cię: {n} z {total}',
   },
 };
 /** @type {'en' | 'pl'} */
@@ -100,6 +128,11 @@ let LANG = 'en';
 export const t = (key, vars = {}) => (STRINGS[LANG][key] ?? STRINGS.en[key] ?? key).replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? ''));
 /** @param {number} n */
 export const num = n => n.toLocaleString(LANG === 'pl' ? 'pl-PL' : 'en-US');
+
+/** Sort and compare: one set per round, played at each phone's own pace @param {string} kind */
+export const isSprint = kind => kind === 'sort' || kind === 'compare';
+/** "Odd one out · 5 questions" (no count for sprints, which are one set) @param {{ kind: string, total: number }} m */
+export const roundSize = m => `${t('k_' + m.kind)}${isSprint(m.kind) ? '' : ` · ${t('n_questions', { n: m.total })}`}`;
 
 /** Fetch join URL, QR code and UI language. @returns {Promise<Partial<Info>>} */
 export function loadInfo() {

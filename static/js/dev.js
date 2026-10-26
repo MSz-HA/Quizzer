@@ -17,9 +17,12 @@ const PLAYERS = [
 /** The phone page's identity while previewing (not saved to localStorage) */
 export const ME = PLAYERS[1];
 const scores = PLAYERS.map((p, i) => ({ ...p, score: [4200, 3650, 2900, 1500][i], streak: [4, 1, 0, 2][i], best: [5, 3, 2, 2][i], correct: [8, 7, 6, 3][i] }));
-const settings = { rounds: 3, per_round: 5, suggest_seconds: 90, category_seconds: 15, question_seconds: 60, avatars: true, ai_awards: false };
+/** @type {import('./types').Settings} */
+const settings = { rounds: 3, per_round: 5, suggest_seconds: 90, category_seconds: 15, question_seconds: 60, avatars: true, ai_awards: false,
+  types: ['classic', 'odd', 'random', 'classic', 'classic'] };
+const types = /** @type {const} */ (['classic', 'odd', 'truefalse', 'number', 'order', 'sort', 'compare', 'about', 'random']);
 const options = { rounds: [1, 2, 3, 4, 5], per_round: [3, 5, 10, 15, 20], suggest_seconds: [30, 60, 90, 120], category_seconds: [5, 10, 15, 30], question_seconds: [10, 15, 20, 30, 45, 60] };
-const rnd = { round: 2, rounds: 3 };
+const rnd = { round: 2, rounds: 3, kind: /** @type {const} */ ('classic') };
 const cats = ['Space and astronomy', 'Movies of the 90s', 'Video games', 'Mythology'];
 const by = [[PLAYERS[0]], [], [PLAYERS[2], PLAYERS[3]], []];
 /** @type {ServerMsg} */
@@ -28,14 +31,60 @@ const categories = { type: 'categories', seconds: 90, players: 4 };
 const sent = { type: 'cats', list: cats.slice(0, 3), submitted: 3, players: 4 };
 /** @type {QuestionMsg} */
 const question = { type: 'question', ...rnd, n: 3, total: 5, category: cats[0], text: 'Which planet has the most known moons?',
-  options: ['Jupiter', 'Saturn', 'Uranus', 'Neptune'], seconds: 60, lock: 0.6 };
+  options: ['Jupiter', 'Saturn', 'Uranus', 'Neptune'], unit: '', seconds: 60, lock: 0.6 };
 /** @type {RevealMsg} */
-const reveal = { type: 'reveal', correct: 1, explanation: 'Saturn has over 140 confirmed moons.', counts: [2, 1, 0, 1], scores,
+const reveal = { type: 'reveal', kind: 'classic', correct: 1, explanation: 'Saturn has over 140 confirmed moons.', counts: [2, 1, 0, 1], scores,
   you: { answered: true, correct: true, delta: 820, score: 3650, rank: 2, streak: 3 } };
+const you = { answered: true, correct: false, delta: 500, score: 3650, rank: 2, streak: 0 };
+// One question and reveal per round type
+/** @type {QuestionMsg} */
+const qTf = { ...question, kind: 'truefalse', text: 'Venus spins in the opposite direction to most planets.', options: ['True', 'False'], seconds: 30 };
+/** @type {QuestionMsg} */
+const qNumber = { ...question, kind: 'number', text: 'How tall is Mount Everest?', options: [], unit: 'm' };
+/** @type {QuestionMsg} */
+const qOrder = { ...question, kind: 'order', text: 'From the closest to the Sun to the farthest', options: ['Mars', 'Venus', 'Neptune', 'Jupiter'] };
+const sortItems = [['Gandalf', 1], ['Neo', 0], ['Hermione', 1], ['Ellen Ripley', 0], ['Sherlock Holmes', 1], ['Marty McFly', 0], ['Elizabeth Bennet', 1], ['The Terminator', 0]]
+  .map(([text, bucket]) => ({ text: String(text), bucket: Number(bucket) }));
+/** @type {QuestionMsg} */
+const qSort = { ...question, n: 1, total: 1, kind: 'sort', text: 'Movie hero or book hero?', options: [], buckets: ['Movie', 'Book'], items: sortItems,
+  key: sortItems.map(i => i.bucket) };
+const films = [['Titanic', 1997], ['The Matrix', 1999], ['Jaws', 1975], ['Avatar', 2009], ['Star Wars', 1977], ['Psycho', 1960]]
+  .map(([text, value]) => ({ text: String(text), value: Number(value), label: String(value) }));
+/** @type {QuestionMsg} */
+const qCompare = { ...question, n: 1, total: 1, kind: 'compare', text: 'Which came out first?', options: [], items: films, higher: false, key: [0, 1, 0, 1, 1] };
+/** @type {ServerMsg[]} */
+const progress = [{ type: 'answered', players: PLAYERS.map((p, i) => ({ ...p, done: i === 0, n: [8, 5, 2, 0][i] })) }];
+const aboutRnd = { ...rnd, kind: /** @type {const} */ ('about') };
+const pizza = ['Pizza', 'Sushi', 'Pasta', 'Burgers'];
+/** @type {ServerMsg} */
+const aboutMsg = { type: 'about', ...aboutRnd, seconds: 30, asks: [
+  { subject: PLAYERS[1], q: 'What would you rather eat for the rest of your life?', options: pizza },
+  { subject: PLAYERS[0], q: 'Which superpower would you pick?', options: ['Flying', 'Invisibility', 'Reading minds', 'Teleporting'] }] };
+/** @type {QuestionMsg} */
+const qAbout = { ...question, ...aboutRnd, category: 'Who knows them best', text: 'What would you rather eat for the rest of your life?', options: pizza, subject: PLAYERS[0] };
+const KIND_SCREENS = /** @type {{ key: string, label: string, only?: 'host' | 'player', msgs: ServerMsg[] }[]} */ ([
+  { key: 'about', label: 'About me', msgs: [aboutMsg, { type: 'answered', players: PLAYERS.map((p, i) => ({ ...p, done: i % 2 === 0 })) }] },
+  { key: 'q_about', label: 'Q About', msgs: [qAbout, { type: 'answered', players: PLAYERS.slice(1).map((p, i) => ({ ...p, done: i < 1 })) }] },
+  { key: 'q_about_me', label: 'Q About me', only: 'player', msgs: [{ ...qAbout, subject: PLAYERS[1] }] },
+  { key: 'r_about', label: 'R About', msgs: [qAbout, { type: 'reveal', kind: 'about', correct: 1, counts: [1, 2, 0, 0], explanation: '', scores, you: { ...you, correct: true, delta: 870 } }] },
+  { key: 'r_about_me', label: 'R About me', only: 'player', msgs: [{ ...qAbout, subject: PLAYERS[1] }, { type: 'reveal', kind: 'about', correct: 1, counts: [1, 2, 0, 0], explanation: '', scores,
+    you: { ...you, answered: false, delta: 666, spotlight: true, right: 2, of: 3 } }] },
+  { key: 'q_tf', label: 'Q T/F', msgs: [qTf] },
+  { key: 'r_tf', label: 'R T/F', msgs: [qTf, { type: 'reveal', kind: 'truefalse', correct: 0, explanation: 'A day on Venus is longer than its year, too.', counts: [3, 1], scores, you: { ...you, correct: true, delta: 910 } }] },
+  { key: 'q_number', label: 'Q 123', msgs: [qNumber] },
+  { key: 'r_number', label: 'R 123', msgs: [qNumber, { type: 'reveal', kind: 'number', answer: 8849, unit: 'm', explanation: 'Measured again in 2020.', scores, you: { ...you, value: 8000 },
+    guesses: PLAYERS.map((p, i) => ({ ...p, value: [8849, 8000, 9500, 5000][i], delta: [1500, 750, 500, 250][i] })) }] },
+  { key: 'q_order', label: 'Q 1234', msgs: [qOrder] },
+  { key: 'r_order', label: 'R 1234', msgs: [qOrder, { type: 'reveal', kind: 'order', order: [1, 0, 3, 2], values: ['108 mln km', '228 mln km', '778 mln km', '4.5 bln km'], placed: [3, 2, 4, 4], explanation: 'Venus is the second planet from the Sun.', scores, you: { ...you, placed: 2 } }] },
+  { key: 'q_sort', label: 'Q Sort', msgs: [qSort, ...progress] },
+  { key: 'r_sort', label: 'R Sort', msgs: [qSort, { type: 'reveal', kind: 'sort', right: [4, 4, 3, 1, 4, 2, 1, 4], players: 4, explanation: 'Gandalf did get films, but he started in a book.', scores, you: { ...you, correct: true, delta: 3800, right: 7, of: 8 } }] },
+  { key: 'q_compare', label: 'Q Cmp', msgs: [qCompare, ...progress] },
+  { key: 'r_compare', label: 'R Cmp', msgs: [qCompare, { type: 'reveal', kind: 'compare', right: [4, 3, 1, 4, 2], players: 4, explanation: 'Psycho is the oldest of them all.', scores, you: { ...you, right: 3, of: 5 } }] },
+]);
 
 /** Each screen is the messages the server would have sent to get there. @type {{ key: string, label: string, only?: 'host' | 'player', msgs: ServerMsg[] }[]} */
 const SCREENS = [
-  { key: 'setup', label: 'Setup', only: 'host', msgs: [{ type: 'setup', settings, options, players: 4 }] },
+  { key: 'setup', label: 'Setup', only: 'host', msgs: [{ type: 'setup', settings, options, types: [...types], players: 4 }] },
   { key: 'lobby', label: 'Lobby', msgs: [{ type: 'lobby', players: PLAYERS, settings }] },
   { key: 'categories', label: 'Suggest', msgs: [categories, sent] },
   { key: 'category_ok', label: 'Suggested', only: 'player', msgs: [categories, { type: 'category_ok', text: cats[2] }] },
@@ -48,6 +97,7 @@ const SCREENS = [
   { key: 'reveal', label: 'Reveal', msgs: [question, reveal] },
   { key: 'reveal_wrong', label: 'Reveal ✗', only: 'player', msgs: [question, { ...reveal, you: { answered: true, correct: false, delta: 0, score: 2830, rank: 3, streak: 0 } }] },
   { key: 'reveal_slow', label: 'Reveal ⏱', only: 'player', msgs: [question, { ...reveal, you: { answered: false, correct: false, delta: 0, score: 2830, rank: 3, streak: 0 } }] },
+  ...KIND_SCREENS,
   { key: 'round_end', label: 'Round end', msgs: [{ type: 'round_end', ...rnd, scores }] },
   { key: 'final', label: 'Final', msgs: [{ type: 'scores', scores, final: true, questions: 15, awards: [
     { key: 'speed_demon', icon: '⚡', title: 'Speed demon', text: 'Ania answered in 1.2 s. Did she even read it?', player: PLAYERS[0] },

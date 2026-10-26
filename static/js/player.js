@@ -1,6 +1,6 @@
 // @ts-check
 // Phone controller: join, suggest a category, vote, answer, see the result
-import { $, esc, t, num, loadInfo, shape, avatar, suggestedBy, startTimer, stopTimer, paintTimer, send, connect, fsSupported, isFullscreen, goFullscreen } from './common.js';
+import { $, esc, t, num, loadInfo, shape, avatar, suggestedBy, startTimer, stopTimer, paintTimer, send, connect, fsSupported, isFullscreen, goFullscreen, isSprint, roundSize } from './common.js';
 
 /** @typedef {import('./types').ServerMsg} ServerMsg */
 /** @typedef {import('./types').QuestionMsg} QuestionMsg */
@@ -9,6 +9,9 @@ import { $, esc, t, num, loadInfo, shape, avatar, suggestedBy, startTimer, stopT
 /** @typedef {import('./types').Info} Info */
 /** @typedef {import('./types').VoteMsg} VoteMsg */
 /** @typedef {import('./types').RoundInfo} RoundInfo */
+/** @typedef {import('./types').SortItem} SortItem */
+/** @typedef {import('./types').CompareItem} CompareItem */
+/** @typedef {import('./types').AboutMsg} AboutMsg */
 
 const app = /** @type {HTMLElement} */ ($('app'));
 const fs = /** @type {HTMLElement} */ ($('fs'));
@@ -184,39 +187,166 @@ function sendCat(surprise) {
 
 /** When the answers appear (performance.now()); answer time is measured on the phone so network lag doesn't count */
 let answersAt = 0;
+const took = () => Math.max(0, performance.now() - answersAt) / 1000;
+/** "3 / 5", or the round type in sprints (one set per round) @param {QuestionMsg} m */
+const qNum = m => isSprint(m.kind) ? t('k_' + m.kind) : `${m.n} / ${m.total}`;
+/** Answers stay hidden for the lock, so a tap meant for Continue can't pick one (only on the first render) @param {QuestionMsg} m */
+const lock = m => performance.now() < answersAt ? ` locked" style="animation-delay:${(answersAt - performance.now()) / 1000}s` : '';
+/** Order rounds: option indices tapped so far, first to last @type {number[]} */
+let ordered = [];
+/** Sprints: the order this phone plays the picks in, how far it got, and how many were right @type {{ seq: number[], k: number, right: number, busy: boolean }} */
+let run = { seq: [], k: 0, right: 0, busy: false };
+
+/** About rounds: the questions about you (indices in AboutMsg.asks), answered one at a time @type {{ m: AboutMsg | null, mine: number[], k: number }} */
+let about = { m: null, mine: [], k: 0 };
+function aboutScreen() {
+  const m = about.m;
+  if (!m) return;
+  if (about.k >= about.mine.length) return msg(t(about.mine.length ? 'all_done' : 'about_none'), t('wait_others'));
+  const a = m.asks[about.mine[about.k]];
+  show(`${hdr(t('about_you'), `${about.k + 1} / ${about.mine.length}`)}
+    <p class="hint big">${esc(a.q)}</p>
+    <div class="opts">${a.options.map((o, b) => `<button class="ans a${b}" data-action="mine" data-b="${b}">${shape(b, 34)}<span>${esc(o)}</span></button>`).join('')}</div>`, { plain: true });
+}
+/** @param {number} b */
+function answerMine(b) {
+  if (!about.m || about.k >= about.mine.length) return;
+  send({ type: 'mine', i: about.mine[about.k], b });
+  about.k++;
+  aboutScreen();
+}
+
 /** @param {QuestionMsg} m */
 function questionScreen(m) {
   answersAt = performance.now() + m.lock * 1000;
-  show(`${hdr(`${m.n} / ${m.total}`, roundLabel(m) || t('look_tv'))}
-    <div class="opts locked" style="animation-delay:${m.lock}s">${m.options.map((o, i) => `<button class="ans a${i}" data-action="answer" data-i="${i}">${shape(i, 34)}<span>${esc(o)}</span></button>`).join('')}</div>`, { plain: true });
+  ordered = [];
+  const n = m.key?.length || 0;
+  // Sort: items in this phone's own random order, so neighbours can't copy. Compare: the chain is the same for everyone
+  const seq = [...Array(n).keys()];
+  if (m.kind === 'sort') seq.sort(() => Math.random() - .5);
+  run = { seq, k: 0, right: 0, busy: false };
+  if (m.subject?.name === me.name) show(`${hdr(qNum(m))}<div class="center mid">${avatar(me, 120, 'pop')}
+    <h1 class="title">${t('spotlight')}</h1><p class="muted" style="font-size:19px">${t('spotlight_sub')}</p></div>`);
+  else if (m.kind === 'number') numberScreen(m);
+  else if (m.kind === 'order') orderScreen(m);
+  else if (isSprint(m.kind)) sprintScreen(m);
+  else show(`${hdr(qNum(m), m.subject ? esc(m.subject.name) : roundLabel(m) || t('look_tv'))}
+    <div class="opts${m.options.length === 2 ? ' two' : ''}${lock(m)}">${m.options.map((o, i) => `<button class="ans a${i}" data-action="answer" data-i="${i}">${shape(i, 34)}<span>${esc(o)}</span></button>`).join('')}</div>`, { plain: true });
+}
+/** @param {QuestionMsg} q @param {string} answer what was picked, already escaped @param {number} [i] colour and shape of a picked option */
+function lockedIn(q, answer, i) {
+  show(`${hdr(qNum(q))}
+    <div class="center mid">
+      ${i === undefined ? '' : `<div class="tile a${i} pop">${shape(i, 110)}</div>`}
+      <h1 class="title">${t('locked')}</h1>
+      <p style="font-size:24px;color:var(--mint)">${answer}</p>
+      <p class="muted" style="font-size:18px">${t('wait_others')}</p></div>`, { plain: true });
 }
 /** @param {QuestionMsg} q @param {number} i */
 function choose(q, i) {
-  send({ type: 'answer', i, t: Math.max(0, performance.now() - answersAt) / 1000 });
-  show(`${hdr(`${q.n} / ${q.total}`)}
-    <div class="center mid">
-      <div class="tile a${i} pop">${shape(i, 110)}</div>
-      <h1 class="title">${t('locked')}</h1>
-      <p style="font-size:24px;color:var(--mint)">${esc(q.options[i])}</p>
-      <p class="muted" style="font-size:18px">${t('wait_others')}</p></div>`, { plain: true });
+  send({ type: 'answer', i, t: took() });
+  lockedIn(q, esc(q.options[i]), i);
+}
+
+/** Closest number: type a guess @param {QuestionMsg} m */
+function numberScreen(m) {
+  show(`${hdr(qNum(m), roundLabel(m) || t('look_tv'))}
+    <div class="center${lock(m)}">
+      <label for="g">${t('your_guess')}</label>
+      <div class="guess"><input id="g" inputmode="decimal" autocomplete="off" enterkeyhint="send">${m.unit ? `<span>${esc(m.unit)}</span>` : ''}</div>
+      <button class="btn" data-action="guess">${t('send')}</button></div>`, { plain: true });
+}
+function guess() {
+  const field = input('g'), q = cur;
+  // Accept "1 234,5" as well as "1234.5"
+  const v = Number((field?.value || '').replace(/[\s\u00a0]/g, '').replace(',', '.'));
+  if (!q || !field?.value.trim() || !Number.isFinite(v)) return field?.focus();
+  send({ type: 'answer', value: v, t: took() });
+  lockedIn(q, `${num(v)}${q.unit ? ` ${esc(q.unit)}` : ''}`);
+}
+
+/** Order: tap the items first to last; tapping a numbered one takes it out again. The last one fills itself in. @param {QuestionMsg} m */
+function orderScreen(m) {
+  show(`${hdr(qNum(m), roundLabel(m) || t('look_tv'))}
+    <p class="hint">${t('tap_order')}</p>
+    <div class="opts${lock(m)}">${m.options.map((o, i) => {
+      const pos = ordered.indexOf(i);
+      return `<button class="ans a${i}${pos < 0 ? '' : ' on'}" data-action="order" data-i="${i}">${pos < 0 ? shape(i, 34) : `<b class="pos">${pos + 1}</b>`}<span>${esc(o)}</span></button>`;
+    }).join('')}</div>
+    <button class="btn" data-action="send_order"${ordered.length < 4 ? ' disabled' : ''}>${t('send')}</button>`, { plain: true });
+}
+/** @param {number} i */
+function tapOrder(i) {
+  if (!cur) return;
+  const pos = ordered.indexOf(i);
+  if (pos >= 0) ordered.splice(pos, 1);
+  else ordered.push(i);
+  if (pos < 0 && ordered.length === 3) ordered.push([0, 1, 2, 3].find(k => !ordered.includes(k)) ?? 0);
+  orderScreen(cur);
+}
+
+/** Sprints: one pick at a time until the set is done. Sort: the item and its 2 buckets. Compare: the winner so far
+ * (with its value once known) against the next item. @param {QuestionMsg} m @param {{ b: number, ok: boolean } | null} [fb] feedback on the last pick */
+function sprintScreen(m, fb = null) {
+  const key = m.key || [], n = key.length;
+  if (run.k >= n) return show(`${hdr(qNum(m))}<div class="center mid"><h1 class="title pop">${t('all_done')}</h1>
+    <div class="delta">${t('n_right', { n: run.right, total: n })}</div><p class="muted" style="font-size:18px">${t('wait_others')}</p></div>`, { plain: true });
+  const i = run.seq[run.k], top = hdr(`${run.k + 1} / ${n}`, `✓ ${run.right}`);
+  const mark = fb ? `<span class="mark">${fb.ok ? '✓' : '✗'}</span>` : '';
+  if (m.kind === 'sort') {
+    const item = /** @type {SortItem} */ ((m.items || [])[i]), buckets = m.buckets || [];
+    return show(`${top}<p class="hint">${esc(m.text)}</p>
+      <div class="item${fb ? (fb.ok ? ' ok' : ' bad') : ''}">${mark}<span>${esc(item.text)}</span></div>
+      <div class="bkts${lock(m)}">${buckets.map((b, k) => `<button class="ans a${k ? 3 : 0}${fb && k !== item.bucket ? ' dim' : ''}" data-action="pick" data-b="${k}"><span>${esc(b)}</span></button>`).join('')}</div>`, { plain: true });
+  }
+  // Compare: pair i is the winner of pairs 0..i-1 against item i + 1
+  const items = /** @type {CompareItem[]} */ (m.items || []);
+  let w = 0;
+  for (let k = 0; k < i; k++) if (key[k]) w = k + 1;
+  const pair = [items[w], items[i + 1]];
+  return show(`${top}<p class="hint big">${esc(m.text)}</p>
+    <div class="opts two vs${lock(m)}">${pair.map((it, b) => {
+      const shown = fb || (b === 0 && i > 0);  // the winner's value is known after the first pick
+      const cls = fb ? (b === key[i] ? ' on' : ' dim') : '';
+      return `<button class="ans a${b ? 3 : 0}${cls}" data-action="pick" data-b="${b}"><span>${esc(it.text)}${shown ? `<small>${esc(it.label)}</small>` : ''}</span>${fb && b === fb.b ? mark : ''}</button>`;
+    }).join('')}</div>`, { plain: true });
+}
+/** @param {number} b */
+function pick(b) {
+  const m = cur;
+  if (!m || run.busy || run.k >= (m.key?.length || 0)) return;
+  const i = run.seq[run.k], ok = m.key?.[i] === b;
+  send({ type: 'pick', i, b, t: took() });
+  if (ok) run.right++;
+  run.busy = true;
+  sprintScreen(m, { b, ok });
+  // Short flash for sort; compare shows both values a little longer
+  setTimeout(() => { run.busy = false; run.k++; if (cur === m) sprintScreen(m); }, m.kind === 'compare' ? 1100 : 450);
 }
 
 /** @param {RevealMsg} m */
 function result(m) {
   const y = m.you;
   if (!y) return show(`<div class="center mid"><h1 class="title">${t('round_over')}</h1><p class="muted" style="font-size:19px">${t('look_big')}</p>${holdBtn()}</div>`);
-  const kind = y.correct ? 'correct' : y.answered ? 'wrong' : 'slow';
+  const kind = y.correct || (y.spotlight && y.right) ? 'correct' : y.answered || y.spotlight ? 'wrong' : 'slow';
   const icon = {
     correct: '<polyline points="4,12.5 9.5,18 20,6.5"/>',
     wrong: '<line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>',
     slow: '<circle cx="12" cy="12" r="9"/><polyline points="12,7 12,12 15.5,14"/>',
   }[kind];
-  const sub = y.correct ? t('points_delta', { n: num(y.delta) }) : cur ? t('answer_was', { a: esc(cur.options[m.correct]) }) : '';
-  show(`<div class="hdr"><span>${cur ? `${cur.n} / ${cur.total}` : ''}</span></div>
+  const lines = y.delta ? [t('points_delta', { n: num(y.delta) })] : [];
+  if (m.kind === 'number' && m.answer !== undefined) lines.push(t('answer_was', { a: `${num(m.answer)}${m.unit ? ` ${esc(m.unit)}` : ''}` }));
+  else if (!y.correct && !y.spotlight && cur && m.correct !== undefined) lines.push(t('answer_was', { a: esc(cur.options[m.correct]) }));
+  const title = y.spotlight ? t('known', { n: y.right ?? 0, total: y.of ?? 0 })
+    : !y.answered ? t('slow')
+    : m.kind === 'number' ? t(y.correct ? 'closest' : 'not_closest')
+    : m.kind === 'order' && !y.correct ? t('placed', { n: y.placed ?? 0 })
+    : isSprint(m.kind) ? t('n_right', { n: y.right ?? 0, total: y.of ?? 0 }) : t(kind);
+  show(`<div class="hdr"><span>${cur ? qNum(cur) : ''}</span></div>
     <div class="center mid">
       <div class="badge pop"><svg width="50%" height="50%" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${icon}</svg></div>
-      <h1 class="title" style="font-size:44px">${t(kind)}</h1>
-      ${sub ? `<div class="delta">${sub}</div>` : ''}
+      <h1 class="title" style="font-size:44px">${title}</h1>
+      ${lines.map(l => `<div class="delta">${l}</div>`).join('')}
       ${y.correct && y.streak >= 3 ? `<div class="delta">🔥 ${t('in_a_row', { n: y.streak })}</div>` : ''}</div>
     <div class="stats"><div><small>${t('score')}</small><b>${num(y.score)}</b></div>
       <div><small>${t('rank')}</small><b>#${y.rank} / ${m.scores.length}</b></div></div>
@@ -246,7 +376,7 @@ function on(m) {
       ballot = null;
       const tie = m.counts.filter(n => n === Math.max(...m.counts)).length > 1;
       show(`<div class="center mid"><p class="muted" style="font-size:18px">${roundLabel(m)}</p><h1 class="title pop">${esc(m.chosen)}</h1>
-        <p class="muted" style="font-size:19px">${tie ? `${t('tie')}<br>` : ''}${t('writing_n', { n: m.total })}</p></div>`);
+        <p class="muted" style="font-size:19px">${tie ? `${t('tie')}<br>` : ''}${t('k_' + m.kind)}</p></div>`);
       break;
     }
     case 'round_end': {
@@ -264,7 +394,12 @@ function on(m) {
     case 'ready':
       stopTimer();
       show(`<div class="center mid"><p class="muted" style="font-size:18px">${roundLabel(m)}</p><h1 class="title">${esc(m.category)}</h1>
-        <p class="muted" style="font-size:19px">${t('n_questions', { n: m.total })}</p>${holdBtn()}</div>`);
+        <p class="muted" style="font-size:19px">${roundSize(m)}</p><div class="note">${t('r_' + m.kind)}</div>${holdBtn()}</div>`);
+      break;
+    case 'about':
+      startTimer(m.seconds);
+      about = { m, mine: m.asks.flatMap((a, i) => a.subject.name === me.name ? [i] : []), k: 0 };
+      aboutScreen();
       break;
     case 'question': cur = m; startTimer(m.seconds, m.lock); questionScreen(m); break;
     case 'reveal': stopTimer(); result(m); break;
@@ -299,6 +434,11 @@ app.addEventListener('click', e => {
       }
       break;
     case 'answer': if (cur && b === pressed) choose(cur, Number(b.dataset.i)); break;
+    case 'guess': guess(); break;
+    case 'order': if (b === pressed) tapOrder(Number(b.dataset.i)); break;
+    case 'send_order': if (cur && ordered.length === 4) { send({ type: 'answer', order: ordered, t: took() }); lockedIn(cur, ordered.map(i => esc(cur?.options[i])).join(' → ')); } break;
+    case 'pick': if (b === pressed) pick(Number(b.dataset.b)); break;
+    case 'mine': if (b === pressed) answerMine(Number(b.dataset.b)); break;
   }
 });
 /** Button the current touch started on: an answer only counts if the finger went down on it, not on the screen before */
@@ -332,6 +472,7 @@ app.addEventListener('keydown', e => {
   const id = /** @type {Element} */ (e.target).id;
   if (id === 'n') join();
   if (id === 'c') sendCat(false);
+  if (id === 'g') guess();
 });
 
 loadInfo().then(async i => {

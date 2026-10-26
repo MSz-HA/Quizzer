@@ -3,15 +3,8 @@
 A place to collect ideas for improving the game. Nothing here is committed to. Ideas that get picked up move to [roadmap.md](roadmap.md).
 
 ### Gameplay
-- **Different round types** (Knowledge is Power has several):
-  - "Closest number wins": answer is a number, typed on the phone, scored by distance.
-  - Order the items (put 4 events in chronological order).
-  - True/false speed round with shorter timers.
-  - "Odd one out".
-  Claude can generate all of these with a `type` field in the JSON.
 - **Final round with a twist:** e.g. last 3 questions worth double, or a race-to-the-finish line where correct answers move you forward.
 - **Difficulty ramp:** ask Claude for easy questions first and harder ones later, instead of a random mix.
-- **"Who knows them best" round:** each player answers a question about themselves on their phone, then others guess. Good for parties, needs no API.
 - **More end-of-game awards** once power-ups exist: most attacks sent, most attacks received, most times frozen, revenge attacks.
 - **Comeback help** for the last-place player (e.g. a free power-up), so nobody drops out mentally.
 - **Team mode:** 2–4 teams, score is the team average.
