@@ -17,8 +17,8 @@ LANGUAGE = os.getenv("QUIZ_LANGUAGE", "Polish")
 LANG = "pl" if LANGUAGE.strip().lower() in ("polish", "polski", "pl") else "en"  # UI strings and built-in topics
 PORT = int(os.getenv("PORT", "8000"))
 Q_SECONDS = int(os.getenv("QUESTION_SECONDS", "60"))  # default; the host can change it on the setup screen
-SUGGEST_SECONDS = int(os.getenv("SUGGEST_SECONDS", "90"))  # default, same; suggesting categories before round 1
-CATEGORY_SECONDS = int(os.getenv("CATEGORY_SECONDS", "15"))  # default, same; voting on a category each round
+SUGGEST_SECONDS = int(os.getenv("SUGGEST_SECONDS", "120"))  # default, same; suggesting categories before round 1
+CATEGORY_SECONDS = int(os.getenv("CATEGORY_SECONDS", "30"))  # default, same; voting on a category each round
 PUBLIC_URL = os.getenv("PUBLIC_URL")  # override if running in Docker
 DEV = os.getenv("QUIZ_DEV") == "1"  # set by --dev; uses mock questions instead of Claude
 FEATURE_AVATARS = os.getenv("FEATURE_AVATARS", "1") == "1"  # default: players pick a colour and emoji avatar
@@ -96,9 +96,9 @@ class State:
     players = {}      # pid -> {"name", "score", "ws", "avatar", "color", "streak", "best", "correct"}
     hosts = set()
     phase = "setup"   # setup | lobby | running | final | error
-    settings = {"rounds": 3, "per_round": 5, "suggest_seconds": SUGGEST_SECONDS, "category_seconds": CATEGORY_SECONDS,
-                "question_seconds": Q_SECONDS, "read_seconds": 2, "reveal_seconds": 3, "avatars": FEATURE_AVATARS,
-                "types": ["classic"] * max(OPTIONS["rounds"])}  # in memory only; types: each round's type (see TYPES)
+    settings = {"rounds": 7, "per_round": 5, "suggest_seconds": SUGGEST_SECONDS, "category_seconds": CATEGORY_SECONDS,
+                "question_seconds": Q_SECONDS, "read_seconds": 5, "reveal_seconds": 7, "avatars": FEATURE_AVATARS,
+                "types": ["random"] * max(OPTIONS["rounds"])}  # in memory only; types: each round's type (see TYPES)
     used = []         # categories already played this game
     log = []          # one entry per question this game, for the awards: {"cat", "q", "seconds", "res", "ranks", "kind",
                       # "answer", "unit", "subject", "detail"}; see reveal()
