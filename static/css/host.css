@@ -139,6 +139,12 @@ h1,h2,p{margin:0}
 .slabel{font-size:30px;color:var(--muted)}
 .settings .count{width:auto;min-width:120px;padding:0 24px;height:76px;background:var(--bg);box-shadow:0 6px 0 var(--card-edge)}
 .settings .count.on{background:var(--fg);color:var(--bg);box-shadow:0 6px 0 var(--muted)}
+.tgrid{display:grid;grid-template-columns:auto minmax(0,420px);gap:16px 32px;align-items:center}
+.trow{display:contents}
+.spick{width:100%;height:76px;padding:0 72px 0 24px;border:0;border-radius:20px;font:inherit;font-size:34px;font-weight:600;
+  color:var(--fg);background:var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23A9AEDB' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6,9 12,15 18,9'/%3E%3C/svg%3E") no-repeat right 22px center/30px;
+  box-shadow:0 6px 0 var(--card-edge);appearance:none;-webkit-appearance:none;cursor:pointer}
+.spick option{font-size:24px;background:var(--card);color:var(--fg)}
 .settings .row{flex-wrap:wrap}
 .summary{width:520px;flex-shrink:0;display:flex;flex-direction:column;gap:16px;align-items:stretch;text-align:center;padding-top:24px}
 .bignum{font-size:150px;font-weight:700;line-height:1;color:var(--gold)}

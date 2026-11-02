@@ -98,6 +98,9 @@ function setup(m) {
   /** @param {string} key @param {string} label @param {{ v: string, label: string, on: boolean }[]} choices */
   const row = (key, label, choices) => `<div class="srow"><span class="slabel">${label}</span><div class="row">${choices.map(c =>
     `<button class="count${c.on ? ' on' : ''}" data-action="set" data-k="${key}" data-v="${c.v}" aria-pressed="${c.on}">${c.label}</button>`).join('')}</div></div>`;
+  /** A table row of label and dropdown, for long lists @param {string} key @param {string} label @param {{ v: string, label: string, on: boolean }[]} choices */
+  const pick = (key, label, choices) => `<label class="trow"><span class="slabel">${label}</span><select class="spick" data-k="${key}">${choices.map(c =>
+    `<option value="${c.v}"${c.on ? ' selected' : ''}>${c.label}</option>`).join('')}</select></label>`;
   /** @param {keyof import('./types').SettingOptions} key @param {(v: number) => string} fmt */
   const nums = (key, fmt) => o[key].map(v => ({ v: String(v), label: fmt(v), on: v === st[key] }));
   const total = st.rounds * st.per_round, types = st.types.slice(0, st.rounds);
@@ -112,7 +115,7 @@ function setup(m) {
         <h2>${t('new_game')}</h2>
         ${row('rounds', t('s_rounds'), nums('rounds', String))}
         ${row('per_round', t('s_per_round'), nums('per_round', String))}
-        ${types.map((k, r) => row(`type${r}`, t('s_type', { n: r + 1 }), m.types.map(v => ({ v, label: t('k_' + v), on: v === k })))).join('')}
+        <div class="tgrid">${types.map((k, r) => pick(`type${r}`, t('s_type', { n: r + 1 }), m.types.map(v => ({ v, label: t('k_' + v), on: v === k })))).join('')}</div>
         ${row('suggest_seconds', t('s_suggest_time'), nums('suggest_seconds', secs))}
         ${row('category_seconds', t('s_cat_time'), nums('category_seconds', secs))}
         ${row('question_seconds', t('s_q_time'), nums('question_seconds', secs))}
@@ -399,21 +402,27 @@ function on(m) {
   }
 }
 
+/** @param {string | undefined} k @param {string | undefined} v */
+function setSetting(k, v) {
+  if (k === 'avatars') send({ type: 'settings', settings: { [k]: v === 'true' } });
+  else if (k?.startsWith('type') && settings) {
+    const types = [...settings.types];
+    types[Number(k.slice(4))] = /** @type {Settings['types'][number]} */ (v);
+    send({ type: 'settings', settings: { types } });
+  }
+  else if (k) send({ type: 'settings', settings: { [k]: Number(v) } });
+}
+
+app.addEventListener('change', e => {
+  const s = /** @type {HTMLSelectElement} */ (e.target);
+  if (s.matches('.spick')) setSetting(s.dataset.k, s.value);
+});
+
 app.addEventListener('click', e => {
   const b = /** @type {HTMLElement | null} */ (/** @type {Element} */ (e.target).closest('[data-action]'));
   if (!b) return;
   switch (b.dataset.action) {
-    case 'set': {
-      const k = b.dataset.k, v = b.dataset.v;
-      if (k === 'avatars') send({ type: 'settings', settings: { [k]: v === 'true' } });
-      else if (k?.startsWith('type') && settings) {
-        const types = [...settings.types];
-        types[Number(k.slice(4))] = /** @type {Settings['types'][number]} */ (v);
-        send({ type: 'settings', settings: { types } });
-      }
-      else if (k) send({ type: 'settings', settings: { [k]: Number(v) } });
-      break;
-    }
+    case 'set': setSetting(b.dataset.k, b.dataset.v); break;
     case 'open': send({ type: 'open' }); break;
     case 'setup': send({ type: 'setup' }); break;
     case 'start': send({ type: 'start' }); break;
