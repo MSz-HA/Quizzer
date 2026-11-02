@@ -9,7 +9,8 @@ import { $, esc, send } from './common.js';
 const FREEZE_S = 3;     // per stack, at most half the answer time
 const BOOM_S = 2;       // stuck after touching a bomb
 const BOMBS = 2;        // per stack
-const STAINS = 3;       // ink stains per stack
+const STAINS = 3;       // ink stains per stack; each stack is a layer of its own
+const SHADES = ['#160B2E', '#2E1656', '#4A2A7A']; // top layer first: lighter below, so wiping one shows the next
 const LETTERS = .3;     // share of letters gone per stack...
 const MAX_LETTERS = .85; // ...up to this much
 const WIPE = 44;        // finger width when wiping ink, in CSS pixels
@@ -20,7 +21,8 @@ let freezeFor = 0, raf = 0, iceRaf = 0;
 /** Floating bombs: element, position, speed and size in CSS pixels @type {{ el: HTMLElement, x: number, y: number, vx: number, vy: number, size: number }[]} */
 let bombs = [];
 const layer = () => /** @type {HTMLElement} */ ($('fx'));
-const ink = () => /** @type {HTMLCanvasElement | null} */ (layer().querySelector('canvas'));
+/** The ink layers, top one first */
+const inks = () => /** @type {HTMLCanvasElement[]} */ ([...layer().querySelectorAll('canvas')]).reverse();
 
 /** Take this player's attacks from the round's power rows. @param {PowerRow[] | undefined} rows @param {string} name */
 export function setEffects(rows, name) {
@@ -46,13 +48,13 @@ export function startEffects(at, seconds) {
   stopEffects();
   freezeFor = Math.min(FREEZE_S * (fx.freeze || 0), seconds / 2);
   if (freezeFor) freeze(at);
-  if (fx.gloop) splat(STAINS * fx.gloop);
+  if (fx.gloop) splat();
   if (fx.bombs) addBombs(BOMBS * fx.bombs);
 }
 /** Sprints: freeze again and splash more ink every few picks, since a sprint is one long question */
 export function burst() {
   if (freezeFor) freeze(performance.now());
-  if (fx.gloop) splat(STAINS * fx.gloop);
+  if (fx.gloop) splat();
 }
 export function stopEffects() {
   cancelAnimationFrame(raf);
@@ -139,32 +141,48 @@ function crackPaths(i, w, h) {
   return html + `<path d="M${ring.join(' L')} Z" data-at=".85"/>`;
 }
 
-// ---- Gloop: ink stains on a canvas over the answer texts. Dragging a finger wipes them; a tap still answers ----
-/** @param {number} n */
-function splat(n) {
-  let cv = ink();
-  if (!cv) {
-    cv = document.createElement('canvas');
+// ---- Gloop: ink stains over the answer texts, a layer per stack. A finger dragged over them wipes one layer per
+// gesture; a tap still answers ----
+function splat() {
+  let layers = inks();
+  if (!layers.length) {
     const dpr = devicePixelRatio || 1;
-    cv.width = innerWidth * dpr;
-    cv.height = innerHeight * dpr;
-    layer().prepend(cv);
+    layers = Array.from({ length: fx.gloop }, () => {
+      const cv = document.createElement('canvas');
+      cv.width = innerWidth * dpr;
+      cv.height = innerHeight * dpr;
+      return cv;
+    });
+    layer().prepend(...[...layers].reverse());  // the top layer last in the page, so it's drawn over the others
     document.body.classList.add('gloop');
   }
-  const ctx = /** @type {CanvasRenderingContext2D} */ (cv.getContext('2d')), dpr = devicePixelRatio || 1, m = Math.min(innerWidth, innerHeight);
+  const dpr = devicePixelRatio || 1, m = Math.min(innerWidth, innerHeight);
   const rnd = (/** @type {number} */ a, /** @type {number} */ b) => a + Math.random() * (b - a);
-  // Aim at the answer texts, each stain on a different one while there are enough. Big, well past the text: the texts are
-  // always in the same place, so a small stain is easy to wipe off just where it matters
-  const texts = [...document.querySelectorAll('#app .fxt')].map(el => el.getBoundingClientRect()).filter(r => r.width && r.height)
-    .sort(() => Math.random() - .5);
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.fillStyle = '#160B2E';
-  for (let i = 0; i < n; i++) {
-    const t = texts[i % texts.length];
-    const [x, y, r] = t ? [rnd(t.left + t.width * .3, t.right - t.width * .3), t.top + t.height / 2, Math.min(m * .38, Math.max(m * .24, t.height * 2.2, t.width * .6))]
-      : [rnd(.1, .9) * innerWidth, rnd(.25, .92) * innerHeight, rnd(.14, .22) * m];  // no texts found: anywhere over the answers
-    blob(ctx, x * dpr, y * dpr, r * dpr, rnd);
+  // Aim at the answers, each layer's stains on different ones (picked at random) while there are enough, somewhere
+  // between the start of the text and most of the way across the button, so layers land in different places. Big, well
+  // past the text: the texts are always in the same place, so a small stain is easy to wipe off just where it matters
+  const targets = [...document.querySelectorAll('#app .fxt')].map(el => ({ t: el.getBoundingClientRect(), b: (el.closest('.ans, .item') || el).getBoundingClientRect() }))
+    .filter(({ t }) => t.width && t.height);
+  layers.forEach((cv, k) => {
+    const ctx = /** @type {CanvasRenderingContext2D} */ (cv.getContext('2d')), picks = shuffle([...targets]);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = SHADES[Math.min(k, SHADES.length - 1)];
+    for (let i = 0; i < STAINS; i++) {
+      const g = picks[i % picks.length];
+      const [x, y, r] = g ? [rnd(g.t.left, Math.max(g.t.right, g.b.left + g.b.width * .75)), rnd(g.b.top + g.b.height * .2, g.b.bottom - g.b.height * .2),
+        Math.min(m * .38, Math.max(m * .24, g.t.height * 2.2, g.t.width * .6))]
+        : [rnd(.1, .9) * innerWidth, rnd(.25, .92) * innerHeight, rnd(.14, .22) * m];  // no texts found: anywhere over the answers
+      blob(ctx, x * dpr, y * dpr, r * dpr, rnd);
+    }
+  });
+}
+/** Fisher-Yates, in place (sorting with a random comparator mostly keeps the order) @template T @param {T[]} a */
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
   }
+  return a;
 }
 /** An ink blob with lobes and splashes around it @param {CanvasRenderingContext2D} ctx @param {number} x @param {number} y
  * @param {number} r @param {(a: number, b: number) => number} rnd */
@@ -178,24 +196,28 @@ function blob(ctx, x, y, r, rnd) {
   }
   ctx.fill();
 }
-/** The current touch, while it may be a wipe @type {{ x: number, y: number, moved: boolean } | null} */
+/** The current touch, while it may be a wipe, and the ink layer it wipes (the top one with ink where it first meets
+ * some) @type {{ x: number, y: number, moved: boolean, cv: HTMLCanvasElement | null } | null} */
 let touch = null;
 /** Whether the last touch was a wipe (a drag), so it doesn't also count as a tap on an answer */
 export const wiped = () => !!touch?.moved;
-addEventListener('pointerdown', e => { touch = ink() ? { x: e.clientX, y: e.clientY, moved: false } : null; }, true);
+addEventListener('pointerdown', e => { touch = inks().length ? { x: e.clientX, y: e.clientY, moved: false, cv: null } : null; }, true);
 addEventListener('pointermove', e => {
-  const cv = ink();
-  if (!touch || !cv || frozen() || !e.buttons && e.pointerType === 'mouse') return;
+  if (!touch || frozen() || !e.buttons && e.pointerType === 'mouse') return;
   if (!touch.moved && Math.hypot(e.clientX - touch.x, e.clientY - touch.y) < 10) return;
   touch.moved = true;
-  const ctx = /** @type {CanvasRenderingContext2D} */ (cv.getContext('2d')), dpr = devicePixelRatio || 1;
-  ctx.globalCompositeOperation = 'destination-out';
-  ctx.lineCap = 'round';
-  ctx.lineWidth = WIPE * dpr;
-  ctx.beginPath();
-  ctx.moveTo(touch.x * dpr, touch.y * dpr);
-  ctx.lineTo(e.clientX * dpr, e.clientY * dpr);
-  ctx.stroke();
+  const dpr = devicePixelRatio || 1;
+  touch.cv ||= inks().find(cv => /** @type {CanvasRenderingContext2D} */ (cv.getContext('2d')).getImageData(e.clientX * dpr, e.clientY * dpr, 1, 1).data[3]) || null;
+  if (touch.cv) {
+    const ctx = /** @type {CanvasRenderingContext2D} */ (touch.cv.getContext('2d'));
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.lineCap = 'round';
+    ctx.lineWidth = WIPE * dpr;
+    ctx.beginPath();
+    ctx.moveTo(touch.x * dpr, touch.y * dpr);
+    ctx.lineTo(e.clientX * dpr, e.clientY * dpr);
+    ctx.stroke();
+  }
   touch.x = e.clientX;
   touch.y = e.clientY;
   // A finger wiping ink over a bomb sets it off (the bomb doesn't get the touch itself: it started on the ink)

@@ -55,7 +55,7 @@ Each feature has an on/off switch (`.env` flag with a lobby toggle where it make
 - **Powers:**
   - **Attacks** last the whole round and stack:
     - **Freeze 🧊:** each answer turns to ice blue (its colour gone) for 3 s per stack on every question (at most half the answer time). The text stays faintly readable through the ice, so you can think but not tap; cracks spread through the ice, it shatters, and the colours come back when the answers can be tapped. The ice sits over the ink, and until it shatters the ink can't be wiped and the bombs don't go off.
-    - **Gloop 🖋️:** 3 ink stains per stack, each aimed at a different answer's text; dragging a finger wipes them, and a tap still answers through the ink.
+    - **Gloop 🖋️:** 3 ink stains per stack, each aimed at a different answer's text. Each stack is its own layer (lighter below), and one wiping gesture clears only one layer, so stacked ink needs a wipe per layer. A tap still answers through the ink.
     - **Dziobaki ✂️ (Letter thief):** 30% of the letters per stack become `_` (at most 85%).
     - **Spin 🙃:** answers turn upside down; at 2 stacks they sway and flip, from 3 they spin.
     - **Bombs 💣:** 2 bombs per stack bounce around the screen; touching one (or wiping ink over one) blows the screen up for 2 s, and the TV shows a banner.
