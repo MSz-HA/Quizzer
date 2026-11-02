@@ -132,7 +132,7 @@ function voteBoard(m) {
       <h1 class="huge${res ? ' pop' : ''}">${res ? esc(res.chosen) : t('vote_tv')}</h1>
       <p class="rule sm"><b>${t('k_' + m.kind)}</b>${t('r_' + m.kind)}</p>
       <div class="agrid vote">${cards}</div>
-      ${res ? `<p class="muted big">${tie ? `${t('tie')} · ` : ''}${isSprint(m.kind) ? t('writing_q') : t('writing_n', { n: m.total })}</p>`
+      ${res ? `<p class="muted big">${tie ? t('tie') : ''}<span id="writing">${tie ? ' · ' : ''}${t('writing_n')}</span></p>`
         : `<div class="row" style="gap:20px"><div class="bar wide"><i id="vbar" style="width:0"></i></div>
           <b class="big" id="vn">${t('voted_n', { n: 0, total: 'players' in m ? m.players : 0 })}</b></div>`}</div>`;
 }
@@ -343,25 +343,12 @@ function on(m) {
       break;
     }
     case 'pick': stopTimer(); voteBoard(m); break;
+    case 'written': $('writing')?.remove(); break;
     case 'cats': {
       setHTML('cl', chips(m.list));
       setText('cn', t('sent_n', { n: m.submitted, total: m.players }));
       const bar = $('cbar');
       if (bar) bar.style.width = m.submitted / Math.max(1, m.players) * 100 + '%';
-      break;
-    }
-    case 'generating':
-      stopTimer();
-      app.innerHTML = `<div class="col center">
-        <h1 class="huge">${isSprint(m.kind) ? t('k_' + m.kind) : t('writing', { n: m.total })}</h1>
-        <div class="chips">${chips(m.categories)}</div>
-        <div class="bar wide"><i id="pg" style="width:4%"></i></div>
-        <p class="muted big" id="pgt"></p></div>`;
-      break;
-    case 'progress': {
-      const bar = $('pg');
-      if (bar) bar.style.width = m.done / m.total * 100 + '%';
-      setText('pgt', t('batches', { n: m.done, total: m.total }));
       break;
     }
     case 'ready':
@@ -374,7 +361,7 @@ function on(m) {
       else {
         app.innerHTML = `<div class="top"><span class="chip pill">${roundPrefix(m)}${t('k_' + m.kind)}</span>${ring(132)}</div>
           <div class="col center dealing"><h1 class="huge">${t('dealing_tv')}</h1>${legend(m.powers)}
-            <div class="who" id="dealt">${dealt(m)}</div></div>`;
+            <div class="who" id="dealt">${dealt(m)}</div>${m.writing ? `<p class="muted big" id="writing">${t('writing_n')}</p>` : ''}</div>`;
         startTimer(m.seconds);
       }
       break;

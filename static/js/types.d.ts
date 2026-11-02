@@ -64,14 +64,14 @@ export type VotesMsg = { type: 'votes'; voted: number; players: number };
 export type PickMsg = RoundInfo & { type: 'pick'; options: string[]; by: Player[][]; counts: number[]; chosen: string; total: number };
 export type CatsMsg = { type: 'cats'; list: string[]; submitted: number; players: number };
 export type CategoryOkMsg = { type: 'category_ok'; text: string };
+export type WrittenMsg = { type: 'written' };
 export type GeneratingMsg = RoundInfo & { type: 'generating'; categories: string[]; total: number };
-export type ProgressMsg = { type: 'progress'; done: number; total: number };
 /** Questions are ready; the round starts when a player holds Continue */
 export type ReadyMsg = RoundInfo & { type: 'ready'; category: string; total: number; powers?: PowerRow[] };
 /** To each player, after the vote: 2 cards to pick one from, and the players a card can be played on */
 export type PowersMsg = RoundInfo & { type: 'powers'; cards: Card[]; targets: Player[]; seconds: number };
 /** TV only: while players pick power-ups; `done` once they have played one */
-export type DealingMsg = RoundInfo & { type: 'dealing'; seconds: number; powers: Power[]; players: (Player & { done: boolean })[] };
+export type DealingMsg = RoundInfo & { type: 'dealing'; seconds: number; powers: Power[]; players: (Player & { done: boolean })[]; writing: boolean };
 /** TV only: a player touched a bomb */
 export type BoomMsg = { type: 'boom'; player: Player };
 export interface SortItem { text: string; bucket: number }
@@ -124,7 +124,7 @@ export type RoundEndMsg = RoundInfo & { type: 'round_end'; scores: Score[] };
 export type ScoresMsg = { type: 'scores'; scores: Score[]; final: boolean; questions: number; awards?: Award[] };
 export type ErrorMsg = { type: 'error'; message: string };
 export type ServerMsg =
-  | LobbyMsg | SetupMsg | JoinedMsg | CategoriesMsg | CatsMsg | CategoryOkMsg | PreparingMsg | VoteMsg | VotesMsg | PickMsg | GeneratingMsg | ProgressMsg
+  | LobbyMsg | SetupMsg | JoinedMsg | CategoriesMsg | CatsMsg | CategoryOkMsg | PreparingMsg | VoteMsg | VotesMsg | PickMsg | WrittenMsg | GeneratingMsg
   | ReadyMsg | PowersMsg | DealingMsg | BoomMsg | AboutMsg | QuestionMsg | SecretMsg | InkMsg | StrokesMsg | AnsweredMsg | RevealMsg | RoundEndMsg | ScoresMsg | ErrorMsg;
 
 // Client -> server

@@ -106,7 +106,7 @@ const fxQ = (q, powers, n = 1) => ({ ...q, powers: [{ player: ME, got: powers.fl
 const POWER_SCREENS = /** @type {{ key: string, label: string, only?: 'host' | 'player', msgs: ServerMsg[] }[]} */ ([
   { key: 'powers', label: 'Pick a card: Bet or a combo', only: 'player', msgs: [{ type: 'powers', ...rnd, cards: [['bet'], ['freeze', 'gloop']], targets: PLAYERS.filter(p => p !== ME), seconds: 20 }] },
   { key: 'powers2', label: 'Pick a card: Bombs or Double, 6 targets', only: 'player', msgs: [{ type: 'powers', ...rnd, cards: [['bombs'], ['double']], targets: [...PLAYERS.filter(p => p !== ME), ...PLAYERS.filter(p => p !== ME)], seconds: 20 }] },
-  { key: 'dealing', label: 'Players picking power-ups', only: 'host', msgs: [{ type: 'dealing', ...rnd, seconds: 20, powers: ['freeze', 'gloop', 'dziobaki', 'spin', 'bombs', 'double', 'bet'], players: PLAYERS.map((p, i) => ({ ...p, done: i < 2 })) }] },
+  { key: 'dealing', label: 'Players picking power-ups', only: 'host', msgs: [{ type: 'dealing', ...rnd, seconds: 20, powers: ['freeze', 'gloop', 'dziobaki', 'spin', 'bombs', 'double', 'bet'], players: PLAYERS.map((p, i) => ({ ...p, done: i < 2 })), writing: true }] },
   { key: 'ready_fx', label: 'Round intro with power-ups played', msgs: [{ type: 'ready', ...rnd, category: cats[0], total: 5, powers: powerRows }] },
   { key: 'fx_freeze', label: 'Attack: Freeze', only: 'player', msgs: [fxQ(question, ['freeze'])] },
   { key: 'fx_gloop', label: 'Attack: Gloop', only: 'player', msgs: [fxQ(question, ['gloop'])] },
@@ -134,7 +134,7 @@ const SCREENS = [
   { key: 'preparing', label: 'Categories: preparing the vote', only: 'host', msgs: [categories, sent, { type: 'preparing' }] },
   { key: 'vote', label: 'Vote: pick a category', msgs: [{ type: 'vote', ...rnd, options: cats, by, seconds: 15, total: 5, players: 4, best: 0 }, { type: 'votes', voted: 2, players: 4 }] },
   { key: 'pick', label: 'Vote: winning category', msgs: [{ type: 'pick', ...rnd, options: cats, by, counts: [1, 0, 3, 0], chosen: cats[2], total: 5 }] },
-  { key: 'generating', label: 'Generating questions', msgs: [{ type: 'generating', ...rnd, categories: [cats[0]], total: 5 }, { type: 'progress', done: 1, total: 2 }] },
+  { key: 'generating', label: 'Generating questions', only: 'player', msgs: [{ type: 'generating', ...rnd, categories: [cats[0]], total: 5 }] },
   { key: 'ready', label: 'Round intro', msgs: [{ type: 'ready', ...rnd, category: cats[0], total: 5 }] },
   { key: 'question', label: 'Classic: question', msgs: [question, { type: 'answered', players: PLAYERS.map((p, i) => ({ ...p, done: i < 2 })) }] },
   { key: 'reveal', label: 'Classic: answer, right', msgs: [question, reveal] },

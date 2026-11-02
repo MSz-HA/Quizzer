@@ -157,6 +157,7 @@ class State:
     targets = {}      # pid -> pids they may play a card on
     played = {}       # pid -> (card index, target pid or None for double)
     deal = None       # (round info, monotonic time the dealing ends), while dealing
+    writing = False   # Claude is writing this round's questions, from the vote result until they're ready
     round_plays = []  # cards played this round: {"round", "from", "to", "powers"}; double's "to" is the player
     hits = {}         # pid -> {attack: stacks} on them this round
     doubles = set()   # pids whose next answer this round scores double
@@ -614,11 +615,9 @@ async def generate_all(cats, total, kind):
                 return []
 
     tasks = [asyncio.create_task(one(j)) for j in jobs]
-    out, done = [], 0
+    out = []
     for fut in asyncio.as_completed(tasks):
         out += await fut
-        done += 1
-        await to_hosts({"type": "progress", "done": done, "total": len(jobs)})
     random.shuffle(out)  # mix categories together
     return out[:total]
 
@@ -1031,6 +1030,7 @@ def powers_msg(pid):
 def dealing_msg():
     """TV: the power-ups in this round and who has played a card."""
     return {"type": "dealing", **g.deal[0], "seconds": deal_left(), "powers": list(POWER_FIT[g.deal[0]["kind"]]),
+            "writing": g.writing,
             "players": [{**public(g.players[pid]), "done": pid in g.played} for pid in g.hands if g.players[pid]["ws"]]}
 
 
@@ -1209,9 +1209,17 @@ async def vote_and_generate(s, rnd, total, subs, own, quirky, who, powers):
     counts = [sum(1 for v in g.votes.values() if v == i) for i in range(len(options))]
     cat = random.choice([o for o, n in zip(options, counts) if n == max(counts)])
     g.used.append(cat)
-    gen = asyncio.create_task(generate_all([cat], total, rnd["kind"]))
     await bc({"type": "pick", **rnd, "options": options, "by": by, "counts": counts, "chosen": cat,
               "total": total})
+
+    async def write():  # started after the pick went out, so the TV's "written" always comes after it
+        try:
+            return await generate_all([cat], total, rnd["kind"])
+        finally:
+            g.writing = False
+            await to_hosts({"type": "written"})
+    g.writing = True
+    gen = asyncio.create_task(write())
     await asyncio.sleep(RESULT_SECONDS)
     if powers:
         await deal_powers(rnd)
@@ -1239,6 +1247,8 @@ async def ws_endpoint(ws: WebSocket, role: str = "player"):
     if is_host:
         g.hosts.add(ws)
         await send(ws, setup_msg() if g.phase == "setup" else g.last or lobby_msg())
+        if g.last and g.last["type"] == "pick" and not g.writing:
+            await send(ws, {"type": "written"})
         if g.accepting in ("answer", "about"):
             await send(ws, answered_msg())
             await send_drawing(ws)
