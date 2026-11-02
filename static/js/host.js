@@ -128,8 +128,9 @@ function voteBoard(m) {
   const cards = m.options.map((o, i) => `<div class="ans a${i} ${!res ? 'pop' : o === res.chosen ? 'won' : 'dim'}${o.length > 26 ? ' long' : ''}" style="animation-delay:${i * 80}ms">
     <span class="badge">${shape(i, 44)}</span><span class="grow">${esc(o)}${res ? '' : fitTag('best' in m && m.best === i)}</span>${suggestedBy(m.by[i], 64)}${res ? `<b class="vcount">${res.counts[i]}</b>` : ''}</div>`).join('');
   app.innerHTML = `<div class="top">${votePill(m)}${res ? '' : ring(132)}</div>
-    <div class="col center" style="justify-content:flex-start;padding-top:20px;gap:48px">
+    <div class="col center" style="justify-content:flex-start;padding-top:20px;gap:40px">
       <h1 class="huge${res ? ' pop' : ''}">${res ? esc(res.chosen) : t('vote_tv')}</h1>
+      <p class="rule sm"><b>${t('k_' + m.kind)}</b>${t('r_' + m.kind)}</p>
       <div class="agrid vote">${cards}</div>
       ${res ? `<p class="muted big">${tie ? `${t('tie')} · ` : ''}${isSprint(m.kind) ? t('writing_q') : t('writing_n', { n: m.total })}</p>`
         : `<div class="row" style="gap:20px"><div class="bar wide"><i id="vbar" style="width:0"></i></div>
