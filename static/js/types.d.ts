@@ -10,8 +10,8 @@ export type Kind = 'classic' | 'odd' | 'truefalse' | 'number' | 'order' | 'sort'
 /** One pen stroke: colour index (see INK in common.js) and points with x, y in 0..1 on a 4:3 canvas */
 export interface Stroke { c: number; p: [number, number][] }
 /** Game settings, changed by the host on the TV's setup screen */
-/** `suggest_seconds`: suggesting categories before round 1; `category_seconds`: voting on a category each round */
-/** `read_seconds`: reading the question before the answers show on phones; `reveal_seconds`: reading the answer before Continue works */
+/** `suggest_seconds`: suggesting categories before round 1; `category_seconds`: voting on a category each round (Advanced section) */
+/** `read_seconds`: reading the question before the answers show on phones; `reveal_seconds`: reading the answer before Continue works (Advanced section, with `question_seconds`) */
 /** `powerups`: deal power-ups each round (only the ones that fit the round type; none in draw rounds) */
 /** `speed_window`: seconds over which a right answer's speed bonus (up to 500) falls to 0 (Advanced section) */
 /** `types`: each round's type (one per possible round, only the first `rounds` are used); random is drawn at the start */

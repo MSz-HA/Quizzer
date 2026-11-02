@@ -49,16 +49,16 @@ export function settingsRows(m) {
     ${row('per_round', t('s_per_round'), nums('per_round', String))}
     <div class="tgrid">${st.types.slice(0, st.rounds).map((k, r) => pick(`type${r}`, t('s_type', { n: r + 1 }), m.types.map(v => ({ v, label: t('k_' + v), on: v === k })))).join('')}</div>
     ${slide('easy_share', t('s_easy'))}
-    ${row('suggest_seconds', t('s_suggest_time'), nums('suggest_seconds', secs))}
-    ${row('category_seconds', t('s_cat_time'), nums('category_seconds', secs))}
-    ${row('question_seconds', t('s_q_time'), nums('question_seconds', secs))}
-    ${row('read_seconds', t('s_read_time'), nums('read_seconds', secs))}
-    ${row('reveal_seconds', t('s_reveal_time'), nums('reveal_seconds', secs))}
     ${onOff('avatars', t('s_avatars'))}
     ${onOff('powerups', t('s_powerups'))}
     ${onOff('adult', t('s_adult'))}
     <button class="adv" data-action="advanced" aria-expanded="${advanced}">${t('s_advanced')}<svg width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6,9 12,15 18,9"/></svg></button>
     <div class="advanced"${advanced ? '' : ' hidden'}>
+      ${row('suggest_seconds', t('s_suggest_time'), nums('suggest_seconds', secs))}
+      ${row('category_seconds', t('s_cat_time'), nums('category_seconds', secs))}
+      ${row('question_seconds', t('s_q_time'), nums('question_seconds', secs))}
+      ${row('read_seconds', t('s_read_time'), nums('read_seconds', secs))}
+      ${row('reveal_seconds', t('s_reveal_time'), nums('reveal_seconds', secs))}
       ${row('speed_window', t('s_speed_window'), nums('speed_window', secs))}
     </div>`;
 }
