@@ -26,6 +26,8 @@ let info = {};
 let players = [];
 /** Current settings, as last sent by the server @type {Settings | null} */
 let settings = null;
+/** Values each setting can take, from the last setup message @type {import('./types').SettingOptions | null} */
+let setupOptions = null;
 /** @type {QuestionMsg | null} */
 let cur = null;
 /** Scores and ranking after the previous reveal, to animate the leaderboard. @type {Score[]} */
@@ -94,6 +96,7 @@ function lobby() {
 
 /** "New game" screen: the host picks settings, then opens the lobby. @param {SetupMsg} m */
 function setup(m) {
+  setupOptions = m.options;
   const st = m.settings, o = m.options, scroll = app.querySelector('.settings')?.scrollTop ?? 0;
   /** @param {string} key @param {string} label @param {{ v: string, label: string, on: boolean }[]} choices */
   const row = (key, label, choices) => `<div class="srow"><span class="slabel">${label}</span><div class="row">${choices.map(c =>
@@ -101,6 +104,10 @@ function setup(m) {
   /** A table row of label and dropdown, for long lists @param {string} key @param {string} label @param {{ v: string, label: string, on: boolean }[]} choices */
   const pick = (key, label, choices) => `<label class="trow"><span class="slabel">${label}</span><select class="spick" data-k="${key}">${choices.map(c =>
     `<option value="${c.v}"${c.on ? ' selected' : ''}>${c.label}</option>`).join('')}</select></label>`;
+  /** A slider over a setting's options, with its value as text (easy share only for now) @param {keyof import('./types').SettingOptions} key @param {string} label */
+  const slide = (key, label) => `<label class="srow"><span class="slabel">${label}</span><div class="row slide">
+    <input type="range" class="spick-range" data-k="${key}" min="0" max="${o[key].length - 1}" value="${o[key].indexOf(st[key])}">
+    <b class="sval">${easyHard(st[key])}</b></div></label>`;
   /** @param {keyof import('./types').SettingOptions} key @param {(v: number) => string} fmt */
   const nums = (key, fmt) => o[key].map(v => ({ v: String(v), label: fmt(v), on: v === st[key] }));
   const total = st.rounds * st.per_round, types = st.types.slice(0, st.rounds);
@@ -116,6 +123,7 @@ function setup(m) {
         ${row('rounds', t('s_rounds'), nums('rounds', String))}
         ${row('per_round', t('s_per_round'), nums('per_round', String))}
         <div class="tgrid">${types.map((k, r) => pick(`type${r}`, t('s_type', { n: r + 1 }), m.types.map(v => ({ v, label: t('k_' + v), on: v === k })))).join('')}</div>
+        ${slide('easy_share', t('s_easy'))}
         ${row('suggest_seconds', t('s_suggest_time'), nums('suggest_seconds', secs))}
         ${row('category_seconds', t('s_cat_time'), nums('category_seconds', secs))}
         ${row('question_seconds', t('s_q_time'), nums('question_seconds', secs))}
@@ -414,9 +422,21 @@ function setSetting(k, v) {
   else if (k) send({ type: 'settings', settings: { [k]: Number(v) } });
 }
 
+/** @param {number} e % of easy questions */
+const easyHard = e => t('easy_hard', { e, h: 100 - e });
+/** Option value at a slider's position @param {HTMLInputElement} s */
+const slid = s => setupOptions?.[/** @type {keyof import('./types').SettingOptions} */ (s.dataset.k)]?.[Number(s.value)];
+
 app.addEventListener('change', e => {
-  const s = /** @type {HTMLSelectElement} */ (e.target);
+  const s = /** @type {HTMLSelectElement | HTMLInputElement} */ (e.target);
   if (s.matches('.spick')) setSetting(s.dataset.k, s.value);
+  if (s.matches('.spick-range')) setSetting(s.dataset.k, String(slid(/** @type {HTMLInputElement} */ (s))));
+});
+// While dragging, update the shown value; the setting is sent on release
+app.addEventListener('input', e => {
+  const s = /** @type {HTMLInputElement} */ (e.target), out = s.closest('.slide')?.querySelector('.sval');
+  const v = s.matches('.spick-range') ? slid(s) : undefined;
+  if (out && v !== undefined) out.textContent = easyHard(v);
 });
 
 app.addEventListener('click', e => {
