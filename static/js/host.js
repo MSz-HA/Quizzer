@@ -122,6 +122,7 @@ function setup(m) {
         ${row('read_seconds', t('s_read_time'), nums('read_seconds', secs))}
         ${row('reveal_seconds', t('s_reveal_time'), nums('reveal_seconds', secs))}
         ${row('avatars', t('s_avatars'), [{ v: 'true', label: t('on'), on: st.avatars }, { v: 'false', label: t('off'), on: !st.avatars }])}
+        ${row('adult', t('s_adult'), [{ v: 'true', label: t('on'), on: st.adult }, { v: 'false', label: t('off'), on: !st.adult }])}
       </section>
       <aside class="summary">
         <div class="bignum">${st.rounds} × ${st.per_round}</div>
@@ -404,7 +405,7 @@ function on(m) {
 
 /** @param {string | undefined} k @param {string | undefined} v */
 function setSetting(k, v) {
-  if (k === 'avatars') send({ type: 'settings', settings: { [k]: v === 'true' } });
+  if (k === 'avatars' || k === 'adult') send({ type: 'settings', settings: { [k]: v === 'true' } });
   else if (k?.startsWith('type') && settings) {
     const types = [...settings.types];
     types[Number(k.slice(4))] = /** @type {Settings['types'][number]} */ (v);

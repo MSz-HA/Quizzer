@@ -13,9 +13,9 @@ export interface Stroke { c: number; p: [number, number][] }
 /** `suggest_seconds`: suggesting categories before round 1; `category_seconds`: voting on a category each round */
 /** `read_seconds`: reading the question before the answers show on phones; `reveal_seconds`: reading the answer before Continue works */
 /** `types`: each round's type (one per possible round, only the first `rounds` are used); random is drawn at the start */
-export interface Settings { rounds: number; per_round: number; suggest_seconds: number; category_seconds: number; question_seconds: number; read_seconds: number; reveal_seconds: number; avatars: boolean; types: (Kind | 'random')[] }
+export interface Settings { rounds: number; per_round: number; suggest_seconds: number; category_seconds: number; question_seconds: number; read_seconds: number; reveal_seconds: number; avatars: boolean; adult: boolean; types: (Kind | 'random')[] }
 /** Allowed values for each numeric setting */
-export type SettingOptions = { [K in Exclude<keyof Settings, 'avatars' | 'types'>]: number[] };
+export type SettingOptions = { [K in Exclude<keyof Settings, 'avatars' | 'adult' | 'types'>]: number[] };
 /** `players` are the ones connected right now; avatar pickers are shown only when settings.avatars is on;
  * `dev` is true with --dev (shows the dev bar) */
 export interface Info {

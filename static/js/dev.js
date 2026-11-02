@@ -18,7 +18,7 @@ const PLAYERS = [
 export const ME = PLAYERS[1];
 const scores = PLAYERS.map((p, i) => ({ ...p, score: [4200, 3650, 2900, 1500][i], streak: [4, 1, 0, 2][i], best: [5, 3, 2, 2][i], correct: [8, 7, 6, 3][i] }));
 /** @type {import('./types').Settings} */
-const settings = { rounds: 3, per_round: 5, suggest_seconds: 90, category_seconds: 15, question_seconds: 60, read_seconds: 2, reveal_seconds: 3, avatars: true,
+const settings = { rounds: 3, per_round: 5, suggest_seconds: 90, category_seconds: 15, question_seconds: 60, read_seconds: 2, reveal_seconds: 3, avatars: true, adult: false,
   types: ['classic', 'odd', 'random', 'classic', 'classic', 'classic', 'classic', 'classic', 'classic', 'classic'] };
 const types = /** @type {const} */ (['classic', 'odd', 'truefalse', 'number', 'order', 'sort', 'compare', 'about', 'draw', 'random']);
 const options = { rounds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], per_round: [3, 5, 10, 15, 20], suggest_seconds: [30, 60, 90, 120], category_seconds: [5, 10, 15, 30], question_seconds: [10, 15, 20, 30, 45, 60], read_seconds: [1, 2, 3, 4, 5], reveal_seconds: [1, 3, 5, 7] };
