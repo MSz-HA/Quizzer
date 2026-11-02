@@ -24,3 +24,8 @@ h1{font-size:30px;line-height:1.15}
 .slide{flex-wrap:nowrap;gap:14px}
 .spick-range{flex:1;min-width:0;accent-color:var(--gold);height:32px}
 .sval{font-size:16px;white-space:nowrap}
+.adv{align-self:flex-start;display:flex;align-items:center;gap:8px;padding:0;background:none;color:var(--muted);font:inherit;font-size:18px;font-weight:600}
+.adv svg{transition:transform .2s}
+.adv[aria-expanded="true"] svg{transform:rotate(180deg)}
+.advanced{display:flex;flex-direction:column;gap:22px}
+.advanced[hidden]{display:none}

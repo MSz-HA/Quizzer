@@ -41,6 +41,8 @@ SPRINT_KINDS = ("sort", "compare")  # answered by many picks, one per item (sort
 SORT_ITEMS = 20
 COMPARE_ITEMS = 16
 SPRINT_SECONDS = 60
+PICK_WINDOW = 4  # sprints: a pick's speed bonus runs out after this many seconds of thinking about it
+FEEDBACK = {"sort": .45, "compare": 1.1}  # sprints: seconds the phone shows a pick's result first (see pick() in player.js)
 ABOUT_SECONDS = 15  # per question, for answering about yourself
 DRAW_SECONDS = 60  # least time for a drawing, whatever the answer time
 INK_COLORS = 4  # pen colours on the drawer's phone
@@ -59,6 +61,8 @@ OPTIONS = {
     "read_seconds": [1, 2, 3, 4, 5],
     "reveal_seconds": [1, 3, 5, 7],
     "easy_share": list(range(0, 101, 10)),  # % of easy questions; the rest are harder
+    # Advanced: a right answer earns a speed bonus of up to 500 points, falling to 0 over this many seconds
+    "speed_window": [4, 6, 8, 10, 15, 20],
 }
 TYPES = [*KINDS, "random"]  # round types on the setup screen; random is drawn when the game starts
 
@@ -116,7 +120,7 @@ class State:
     hosts = set()
     phase = "setup"   # setup | lobby | running | final | error
     settings = {"rounds": 7, "per_round": 5, "suggest_seconds": SUGGEST_SECONDS, "category_seconds": CATEGORY_SECONDS,
-                "question_seconds": Q_SECONDS, "read_seconds": 5, "reveal_seconds": 7, "easy_share": 60, "avatars": FEATURE_AVATARS, "adult": False,
+                "question_seconds": Q_SECONDS, "read_seconds": 5, "reveal_seconds": 7, "easy_share": 60, "speed_window": 8, "avatars": FEATURE_AVATARS, "adult": False,
                 "types": ["random"] * max(OPTIONS["rounds"])}  # in memory only; types: each round's type (see TYPES)
     used = []         # categories already played this game
     log = []          # one entry per question this game, for the awards: {"cat", "q", "seconds", "res", "ranks", "kind",
@@ -598,12 +602,12 @@ async def generate_all(cats, total, kind):
     return out[:total]
 
 
-def score(q, seconds, worth):
+def score(q, worth, window):
     """Points per player who answered, the players whose answer counts as correct (streaks, awards), each player's
     answer time for the awards, what the reveal shows for this kind, and each player's own part of it.
-    `worth` is a whole round's points, for sort rounds."""
+    `worth` is a whole round's points, for sort rounds; `window` the seconds over which the speed bonus runs out."""
     kind, ans = q["kind"], g.answers
-    speed = lambda t: 500 + int(500 * max(0.0, 1 - t / seconds))  # 1000 for an instant answer, 500 at the buzzer
+    speed = lambda t: 500 + int(500 * max(0.0, 1 - t / window))  # 1000 for an instant answer, 500 after the window
     deltas, ok, times, show, mine = {}, set(), {pid: a[1] for pid, a in ans.items()}, {}, {}
     if kind in CHOICE_KINDS:
         for pid, (i, t) in ans.items():
@@ -640,14 +644,20 @@ def score(q, seconds, worth):
                 ok.add(pid)
         show = {"order": q["answer"], "values": q["values"], "placed": placed}
     elif kind in SPRINT_KINDS:
-        # Faster picks earn more (like speed() above); a perfect set is worth a whole round
+        # Each right pick earns more the faster it was made, timed from the previous pick (less the phone's result
+        # flash): full points at once, half after PICK_WINDOW seconds. A perfect, fast set is worth a whole round
         n = len(q["key"])
         right = [0] * n  # per pick: players who got it right
         for pid, picks in ans.items():
-            hits = [(i, t) for i, (b, t) in picks.items() if q["key"][i] == b]
-            for i, _ in hits:
-                right[i] += 1
-            deltas[pid] = int(sum(worth / n * (1 - .5 * min(1.0, t / seconds)) for _, t in hits))
+            hits, prev = [], None
+            for i, (b, t) in sorted(picks.items(), key=lambda p: p[1][1]):
+                took = t if prev is None else max(0.0, t - prev - FEEDBACK[kind])
+                prev = t
+                if q["key"][i] == b:
+                    hits.append(i)
+                    right[i] += 1
+                    deltas[pid] = deltas.get(pid, 0) + worth / n * (1 - .5 * min(1.0, took / PICK_WINDOW))
+            deltas[pid] = int(deltas.get(pid, 0))
             times[pid] = max(t for _, t in picks.values()) / len(picks)  # seconds per pick
             mine[pid] = {"right": len(hits), "of": n}
             if len(hits) >= .75 * n:
@@ -665,9 +675,9 @@ def longest_run(picks, key):
     return best
 
 
-async def reveal(q, seconds, worth, wait):
+async def reveal(q, seconds, worth, wait, window):
     g.accepting = None
-    deltas, ok, times, show, mine = score(q, seconds, worth)
+    deltas, ok, times, show, mine = score(q, worth, window)
     for pid, p in g.players.items():
         p["score"] += deltas.get(pid, 0)
         if pid == q.get("subject"):  # didn't guess, so no change to the streak
@@ -956,6 +966,8 @@ async def run_game():
         total = 1 if kind in SPRINT_KINDS else s["per_round"]  # a sprint round is one set of items
         seconds = (SPRINT_SECONDS if kind in SPRINT_KINDS else max(5, s["question_seconds"] // 2) if kind == "truefalse"
                    else max(DRAW_SECONDS, s["question_seconds"]) if kind == "draw" else s["question_seconds"])
+        # Speed bonus window; guessing a drawing keeps the whole time, since the drawing takes shape slowly
+        window = seconds if kind == "draw" else min(seconds, s["speed_window"])
         if kind == "about":  # built-in questions about the players, no vote
             questions = about_questions(total)
             cat = questions[0]["cat"] if questions else ""
@@ -987,7 +999,7 @@ async def run_game():
                 await send_drawing(g.players[q["subject"]]["ws"], full=False)
             await to_hosts(answered_msg())
             await wait_for(s["read_seconds"] + seconds, lambda: all(done(pid) for pid in guessers()))
-            await reveal(q, seconds, s["per_round"] * 1000, s["reveal_seconds"])
+            await reveal(q, seconds, s["per_round"] * 1000, s["reveal_seconds"], window)
             asked += 1
             await hold(s["reveal_seconds"])
         if r < s["rounds"]:

@@ -12,8 +12,9 @@ export interface Stroke { c: number; p: [number, number][] }
 /** Game settings, changed by the host on the TV's setup screen */
 /** `suggest_seconds`: suggesting categories before round 1; `category_seconds`: voting on a category each round */
 /** `read_seconds`: reading the question before the answers show on phones; `reveal_seconds`: reading the answer before Continue works */
+/** `speed_window`: seconds over which a right answer's speed bonus (up to 500) falls to 0 (Advanced section) */
 /** `types`: each round's type (one per possible round, only the first `rounds` are used); random is drawn at the start */
-export interface Settings { rounds: number; per_round: number; suggest_seconds: number; category_seconds: number; question_seconds: number; read_seconds: number; reveal_seconds: number; easy_share: number; avatars: boolean; adult: boolean; types: (Kind | 'random')[] }
+export interface Settings { rounds: number; per_round: number; suggest_seconds: number; category_seconds: number; question_seconds: number; read_seconds: number; reveal_seconds: number; easy_share: number; speed_window: number; avatars: boolean; adult: boolean; types: (Kind | 'random')[] }
 /** Allowed values for each numeric setting */
 export type SettingOptions = { [K in Exclude<keyof Settings, 'avatars' | 'adult' | 'types'>]: number[] };
 /** `players` are the ones connected right now; avatar pickers are shown only when settings.avatars is on;

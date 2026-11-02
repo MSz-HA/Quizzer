@@ -8,6 +8,8 @@ import { t, send, isSprint } from './common.js';
 
 /** The setup message the form was last drawn from @type {SetupMsg | null} */
 let last = null;
+/** Whether the Advanced section is open (per screen, kept while the form is redrawn) */
+let advanced = false;
 
 /** @param {number} v */
 const secs = v => v >= 60 && v % 60 === 0 ? t('mins', { n: v / 60 }) : t('secs', { n: v });
@@ -52,7 +54,11 @@ export function settingsRows(m) {
     ${row('read_seconds', t('s_read_time'), nums('read_seconds', secs))}
     ${row('reveal_seconds', t('s_reveal_time'), nums('reveal_seconds', secs))}
     ${onOff('avatars', t('s_avatars'))}
-    ${onOff('adult', t('s_adult'))}`;
+    ${onOff('adult', t('s_adult'))}
+    <button class="adv" data-action="advanced" aria-expanded="${advanced}">${t('s_advanced')}<svg width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6,9 12,15 18,9"/></svg></button>
+    <div class="advanced"${advanced ? '' : ' hidden'}>
+      ${row('speed_window', t('s_speed_window'), nums('speed_window', secs))}
+    </div>`;
 }
 
 /** @param {string | undefined} k @param {string | undefined} v */
@@ -74,6 +80,12 @@ export function wireSettings(root) {
   root.addEventListener('click', e => {
     const b = /** @type {HTMLElement | null} */ (/** @type {Element} */ (e.target).closest('[data-action="set"]'));
     if (b) setSetting(b.dataset.k, b.dataset.v);
+    const adv = /** @type {Element} */ (e.target).closest('[data-action="advanced"]');
+    if (adv) {
+      advanced = !advanced;
+      adv.setAttribute('aria-expanded', String(advanced));
+      root.querySelector('.advanced')?.toggleAttribute('hidden', !advanced);
+    }
   });
   root.addEventListener('change', e => {
     const s = /** @type {HTMLSelectElement | HTMLInputElement} */ (e.target);
