@@ -100,7 +100,7 @@ const SCREENS = [
   { key: 'categories', label: 'Suggest', msgs: [categories, sent] },
   { key: 'category_ok', label: 'Suggested', only: 'player', msgs: [categories, { type: 'category_ok', text: cats[2] }] },
   { key: 'preparing', label: 'Preparing', only: 'host', msgs: [categories, sent, { type: 'preparing' }] },
-  { key: 'vote', label: 'Vote', msgs: [{ type: 'vote', ...rnd, options: cats, by, seconds: 15, total: 5, players: 4 }, { type: 'votes', voted: 2, players: 4 }] },
+  { key: 'vote', label: 'Vote', msgs: [{ type: 'vote', ...rnd, options: cats, by, seconds: 15, total: 5, players: 4, best: 0 }, { type: 'votes', voted: 2, players: 4 }] },
   { key: 'pick', label: 'Pick', msgs: [{ type: 'pick', ...rnd, options: cats, by, counts: [1, 0, 3, 0], chosen: cats[2], total: 5 }] },
   { key: 'generating', label: 'Generating', msgs: [{ type: 'generating', ...rnd, categories: [cats[0]], total: 5 }, { type: 'progress', done: 1, total: 2 }] },
   { key: 'ready', label: 'Ready', msgs: [{ type: 'ready', ...rnd, category: cats[0], total: 5 }] },

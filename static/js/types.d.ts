@@ -46,7 +46,7 @@ export type CategoriesMsg = { type: 'categories'; seconds: number; players: numb
 export type PreparingMsg = { type: 'preparing' };
 /** Players vote on the round's category (suggestions not played yet, topped up with random topics); `by[i]` suggested `options[i]`
  * (empty for random topics); `total` is questions in this round */
-export type VoteMsg = RoundInfo & { type: 'vote'; options: string[]; by: Player[][]; seconds: number; total: number; players: number };
+export type VoteMsg = RoundInfo & { type: 'vote'; options: string[]; by: Player[][]; seconds: number; total: number; players: number; best?: number };
 /** TV only: sent after each vote */
 export type VotesMsg = { type: 'votes'; voted: number; players: number };
 /** Vote result: `counts[i]` votes for `options[i]`; `chosen` has the most, ties drawn at random */

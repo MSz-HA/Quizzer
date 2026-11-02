@@ -19,7 +19,7 @@ const STRINGS = {
     wifi: "Same Wi-Fi as the TV · open in your phone's browser", players: 'Players', joined: '{n} joined',
     waiting_players: 'Waiting for players…', start: 'Start game',
     pick_cat: 'Suggest a category on your phone', vote_tv: 'Vote on your phone', vote: 'Vote for a category',
-    voted_n: '{n} of {total} voted', vote_change: 'You can change your vote until time runs out.', tie: "It's a tie, drawn at random",
+    voted_n: '{n} of {total} voted', vote_change: 'You can change your vote until time runs out.', tie: "It's a tie, drawn at random", fit_great: '★ Great fit for this round',
     sent_n: '{n} of {total} sent',
     writing: 'Claude is writing {n} questions about', batches: '{n} of {total} batches ready',
     qn: 'Question {n} of {total}', answered: '{n} of {total} answered', leaderboard: 'Leaderboard',
@@ -72,7 +72,7 @@ const STRINGS = {
     wifi: 'Ta sama sieć Wi-Fi co telewizor · otwórz w przeglądarce telefonu', players: 'Gracze', joined: 'Dołączyło: {n}',
     waiting_players: 'Czekamy na graczy…', start: 'Zaczynamy',
     pick_cat: 'Zaproponuj kategorię na telefonie', vote_tv: 'Głosujcie na telefonach', vote: 'Zagłosuj na kategorię',
-    voted_n: 'Zagłosowało: {n} z {total}', vote_change: 'Możesz zmienić głos do końca czasu.', tie: 'Remis, zdecydowało losowanie',
+    voted_n: 'Zagłosowało: {n} z {total}', vote_change: 'Możesz zmienić głos do końca czasu.', tie: 'Remis, zdecydowało losowanie', fit_great: '★ Świetna na tę rundę',
     sent_n: 'Wysłano: {n} z {total}',
     writing: 'Klaudiusz pisze {n} pytań o', batches: 'Gotowe partie: {n} z {total}',
     qn: 'Pytanie {n} z {total}', answered: 'Odpowiedziało: {n} z {total}', leaderboard: 'Ranking',
@@ -198,6 +198,8 @@ export function avatar(p, size, extra = '') {
 }
 
 /** Overlapping avatars of the players who suggested a category ('' for none). @param {Player[]} ps @param {number} size */
+/** Under the one category in the vote that Claude thinks fits the round type best. @param {boolean} on */
+export const fitTag = on => on ? `<small class="fit">${t('fit_great')}</small>` : '';
 export const suggestedBy = (ps, size) => ps.length ? `<span class="by">${ps.map(p => avatar(p, size)).join('')}</span>` : '';
 
 // ---- Countdown: paints every [data-t] (seconds), [data-bar] (width) and [data-ring] (SVG stroke) ----
