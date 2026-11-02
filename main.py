@@ -1178,7 +1178,9 @@ def lan_ip():
 @app.get("/api/info")
 def info():
     url = PUBLIC_URL or f"http://{lan_ip()}:{PORT}/"
-    return {"url": url, "qr": segno.make(url).svg_data_uri(scale=8), "lang": LANG,
+    remote = url.rstrip("/") + "/remote"  # the setup screen on a phone
+    return {"url": url, "qr": segno.make(url).svg_data_uri(scale=8), "remote": remote,
+            "remote_qr": segno.make(remote).svg_data_uri(scale=4), "lang": LANG,
             "avatars": list(AVATARS), "colors": list(COLORS), "players": lobby_msg()["players"],
             "settings": g.settings, "dev": DEV}
 
@@ -1187,7 +1189,7 @@ def info():
 async def revalidate_pages(request, call_next):
     """Make browsers check for updated HTML/CSS/JS instead of running stale cached copies."""
     response = await call_next(request)
-    if request.url.path in ("/", "/host") or request.url.path.startswith("/static/"):
+    if request.url.path in ("/", "/host", "/remote") or request.url.path.startswith("/static/"):
         response.headers["Cache-Control"] = "no-cache"
     return response
 
@@ -1200,6 +1202,12 @@ def player_page():
 @app.get("/host")
 def host_page():
     return FileResponse(STATIC / "host.html")
+
+
+@app.get("/remote")
+def remote_page():
+    """The setup screen on a phone; linked from the TV's setup screen."""
+    return FileResponse(STATIC / "remote.html")
 
 
 app.mount("/static", StaticFiles(directory=STATIC), name="static")

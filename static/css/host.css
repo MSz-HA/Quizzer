@@ -149,6 +149,10 @@ h1,h2,p{margin:0}
 .sval{font-size:32px;white-space:nowrap}
 .spick option{font-size:24px;background:var(--card);color:var(--fg)}
 .settings .row{flex-wrap:wrap}
+.remote{display:flex;align-items:center;gap:20px;margin-top:8px;font-size:24px;color:var(--muted);text-align:left}
+.remote img{width:120px;height:120px;flex-shrink:0;background:#fff;border-radius:14px;padding:6px}
+.remote p{margin:0;overflow-wrap:anywhere}
+.remote a{color:var(--fg);font-weight:600}
 .summary{width:520px;flex-shrink:0;display:flex;flex-direction:column;gap:16px;align-items:stretch;text-align:center;padding-top:24px}
 .bignum{font-size:150px;font-weight:700;line-height:1;color:var(--gold)}
 

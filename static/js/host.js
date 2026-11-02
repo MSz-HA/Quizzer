@@ -1,5 +1,6 @@
 // @ts-check
 // TV screen: lobby with QR code, then questions, reveals and final scores
+import { settingsRows, wireSettings, estimate } from './setup.js';
 import { $, esc, t, num, loadInfo, shape, tone, avatar, suggestedBy, fitTag, startTimer, stopTimer, send, connect, fsSupported, goFullscreen, isSprint, roundSize, paintStrokes } from './common.js';
 
 /** @typedef {import('./types').ServerMsg} ServerMsg */
@@ -26,8 +27,6 @@ let info = {};
 let players = [];
 /** Current settings, as last sent by the server @type {Settings | null} */
 let settings = null;
-/** Values each setting can take, from the last setup message @type {import('./types').SettingOptions | null} */
-let setupOptions = null;
 /** @type {QuestionMsg | null} */
 let cur = null;
 /** Scores and ranking after the previous reveal, to animate the leaderboard. @type {Score[]} */
@@ -65,7 +64,6 @@ const roundPrefix = m => m.rounds > 1 ? `${t('round_short', { n: m.round, total:
 /** @param {QuestionMsg} m */
 const qPills = m => `<div class="row"><span class="chip pill gold">${esc(m.category)}</span>${m.subject ? `<span class="chip pill subj">${avatar(m.subject, 40)}${esc(m.subject.name)}</span>` : ''}<span class="muted">${roundPrefix(m)}${m.kind === 'classic' || m.kind === 'about' ? '' : `${t('k_' + m.kind)}${isSprint(m.kind) ? '' : ' · '}`}${isSprint(m.kind) ? '' : t('qn', { n: m.n, total: m.total })}</span></div>`;
 /** @param {number} v seconds */
-const secs = v => v >= 60 && v % 60 === 0 ? t('mins', { n: v / 60 }) : t('secs', { n: v });
 const check = '<svg width="52" height="52" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="fill:none"><polyline points="4,12.5 9.5,18 20,6.5"/></svg>';
 
 function lobby() {
@@ -96,41 +94,13 @@ function lobby() {
 
 /** "New game" screen: the host picks settings, then opens the lobby. @param {SetupMsg} m */
 function setup(m) {
-  setupOptions = m.options;
-  const st = m.settings, o = m.options, scroll = app.querySelector('.settings')?.scrollTop ?? 0;
-  /** @param {string} key @param {string} label @param {{ v: string, label: string, on: boolean }[]} choices */
-  const row = (key, label, choices) => `<div class="srow"><span class="slabel">${label}</span><div class="row">${choices.map(c =>
-    `<button class="count${c.on ? ' on' : ''}" data-action="set" data-k="${key}" data-v="${c.v}" aria-pressed="${c.on}">${c.label}</button>`).join('')}</div></div>`;
-  /** A table row of label and dropdown, for long lists @param {string} key @param {string} label @param {{ v: string, label: string, on: boolean }[]} choices */
-  const pick = (key, label, choices) => `<label class="trow"><span class="slabel">${label}</span><select class="spick" data-k="${key}">${choices.map(c =>
-    `<option value="${c.v}"${c.on ? ' selected' : ''}>${c.label}</option>`).join('')}</select></label>`;
-  /** A slider over a setting's options, with its value as text (easy share only for now) @param {keyof import('./types').SettingOptions} key @param {string} label */
-  const slide = (key, label) => `<label class="srow"><span class="slabel">${label}</span><div class="row slide">
-    <input type="range" class="spick-range" data-k="${key}" min="0" max="${o[key].length - 1}" value="${o[key].indexOf(st[key])}">
-    <b class="sval">${easyHard(st[key])}</b></div></label>`;
-  /** @param {keyof import('./types').SettingOptions} key @param {(v: number) => string} fmt */
-  const nums = (key, fmt) => o[key].map(v => ({ v: String(v), label: fmt(v), on: v === st[key] }));
-  const total = st.rounds * st.per_round, types = st.types.slice(0, st.rounds);
-  /** Reading + answer time + reveal per question; a sprint is one 60 s set @param {string} k */
-  const play = k => isSprint(k) ? 75 : st.per_round * (st.read_seconds + (k === 'truefalse' ? Math.max(5, st.question_seconds / 2) : k === 'draw' ? Math.max(60, st.question_seconds) : st.question_seconds) + st.reveal_seconds + 4);
-  // Rough upper bound: suggestions + tidying once, vote + generation per round, playing the round, standings between rounds
-  const minutes = Math.ceil((st.suggest_seconds + 10 + st.rounds * (st.category_seconds + 20) + types.reduce((a, k) => a + play(k), 0) + (st.rounds - 1) * 8) / 60);
+  const st = m.settings, scroll = app.querySelector('.settings')?.scrollTop ?? 0, { total, minutes } = estimate(st);
   app.innerHTML = `<div class="top" style="min-height:0">
       <div class="brand"><div class="logo">Q</div>Quizzer</div>${fsBtn()}</div>
     <div class="setup">
       <section class="settings">
         <h2>${t('new_game')}</h2>
-        ${row('rounds', t('s_rounds'), nums('rounds', String))}
-        ${row('per_round', t('s_per_round'), nums('per_round', String))}
-        <div class="tgrid">${types.map((k, r) => pick(`type${r}`, t('s_type', { n: r + 1 }), m.types.map(v => ({ v, label: t('k_' + v), on: v === k })))).join('')}</div>
-        ${slide('easy_share', t('s_easy'))}
-        ${row('suggest_seconds', t('s_suggest_time'), nums('suggest_seconds', secs))}
-        ${row('category_seconds', t('s_cat_time'), nums('category_seconds', secs))}
-        ${row('question_seconds', t('s_q_time'), nums('question_seconds', secs))}
-        ${row('read_seconds', t('s_read_time'), nums('read_seconds', secs))}
-        ${row('reveal_seconds', t('s_reveal_time'), nums('reveal_seconds', secs))}
-        ${row('avatars', t('s_avatars'), [{ v: 'true', label: t('on'), on: st.avatars }, { v: 'false', label: t('off'), on: !st.avatars }])}
-        ${row('adult', t('s_adult'), [{ v: 'true', label: t('on'), on: st.adult }, { v: 'false', label: t('off'), on: !st.adult }])}
+        ${settingsRows(m)}
       </section>
       <aside class="summary">
         <div class="bignum">${st.rounds} × ${st.per_round}</div>
@@ -139,6 +109,7 @@ function setup(m) {
         <div class="grow"></div>
         ${m.players ? `<p class="muted">${t('phones', { n: m.players })}</p>` : ''}
         <button class="btn big" data-action="open">${t('open_lobby')}</button>
+        ${info.remote ? `<div class="remote"><img src="${info.remote_qr}" alt="QR code"><p>${t('remote_link')}<br><a href="${esc(info.remote)}" target="_blank">${esc(info.remote.replace(/^https?:\/\//, ''))}</a></p></div>` : ''}
       </aside>
     </div>`;
   const list = app.querySelector('.settings');
@@ -411,39 +382,12 @@ function on(m) {
   }
 }
 
-/** @param {string | undefined} k @param {string | undefined} v */
-function setSetting(k, v) {
-  if (k === 'avatars' || k === 'adult') send({ type: 'settings', settings: { [k]: v === 'true' } });
-  else if (k?.startsWith('type') && settings) {
-    const types = [...settings.types];
-    types[Number(k.slice(4))] = /** @type {Settings['types'][number]} */ (v);
-    send({ type: 'settings', settings: { types } });
-  }
-  else if (k) send({ type: 'settings', settings: { [k]: Number(v) } });
-}
-
-/** @param {number} e % of easy questions */
-const easyHard = e => t('easy_hard', { e, h: 100 - e });
-/** Option value at a slider's position @param {HTMLInputElement} s */
-const slid = s => setupOptions?.[/** @type {keyof import('./types').SettingOptions} */ (s.dataset.k)]?.[Number(s.value)];
-
-app.addEventListener('change', e => {
-  const s = /** @type {HTMLSelectElement | HTMLInputElement} */ (e.target);
-  if (s.matches('.spick')) setSetting(s.dataset.k, s.value);
-  if (s.matches('.spick-range')) setSetting(s.dataset.k, String(slid(/** @type {HTMLInputElement} */ (s))));
-});
-// While dragging, update the shown value; the setting is sent on release
-app.addEventListener('input', e => {
-  const s = /** @type {HTMLInputElement} */ (e.target), out = s.closest('.slide')?.querySelector('.sval');
-  const v = s.matches('.spick-range') ? slid(s) : undefined;
-  if (out && v !== undefined) out.textContent = easyHard(v);
-});
+wireSettings(app);
 
 app.addEventListener('click', e => {
   const b = /** @type {HTMLElement | null} */ (/** @type {Element} */ (e.target).closest('[data-action]'));
   if (!b) return;
   switch (b.dataset.action) {
-    case 'set': setSetting(b.dataset.k, b.dataset.v); break;
     case 'open': send({ type: 'open' }); break;
     case 'setup': send({ type: 'setup' }); break;
     case 'start': send({ type: 'start' }); break;

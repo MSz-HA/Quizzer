@@ -40,7 +40,7 @@ const STRINGS = {
     save: 'Save', in_a_row: '{n} in a row', wins: '{name} wins!',
     win_sub: '{score} points · {correct} of {total} correct · longest streak {best}',
     new_game: 'New game', s_rounds: 'Rounds', s_per_round: 'Questions per round', s_suggest_time: 'Time to suggest categories', s_cat_time: 'Time to vote on a category',
-    s_q_time: 'Time to answer', s_read_time: 'Time to read the question first', s_reveal_time: 'Time to read the answer before Continue', s_avatars: 'Player avatars', s_easy: 'Question difficulty', easy_hard: '{e}% easy · {h}% harder', s_adult: '18+ (saucy categories and questions, adults only)', on: 'On', off: 'Off', secs: '{n} s', mins: '{n} min',
+    s_q_time: 'Time to answer', s_read_time: 'Time to read the question first', s_reveal_time: 'Time to read the answer before Continue', s_avatars: 'Player avatars', remote_link: 'Set up from your phone:', remote_playing: 'Game in progress', remote_playing_sub: 'Follow it on the TV. Settings come back here when the game ends.', s_easy: 'Question difficulty', easy_hard: '{e}% easy · {h}% harder', s_adult: '18+ (saucy categories and questions, adults only)', on: 'On', off: 'Off', secs: '{n} s', mins: '{n} min',
     open_lobby: 'Open lobby', settings: 'Settings', total_q: '{n} questions in total', duration: 'up to ~{n} min',
     phones: 'Phones connected: {n}', game_summary: 'Rounds: {rounds} · questions per round: {per}',
     round_of: 'Round {n} of {total}', round_short: 'Round {n}/{total}', n_questions: '{n} questions',
@@ -93,7 +93,7 @@ const STRINGS = {
     save: 'Zapisz', in_a_row: '{n} z rzędu', wins: '{name} wygrywa!',
     win_sub: '{score} pkt · poprawne: {correct} z {total} · najdłuższa seria: {best}',
     new_game: 'Nowa gra', s_rounds: 'Rundy', s_per_round: 'Pytania w rundzie', s_suggest_time: 'Czas na sugestie kategorii', s_cat_time: 'Czas na wybór kategorii',
-    s_q_time: 'Czas na odpowiedź', s_read_time: 'Czas na przeczytanie pytania', s_reveal_time: 'Czas na przeczytanie odpowiedzi przed „Dalej”', s_avatars: 'Awatary graczy', s_easy: 'Trudność pytań', easy_hard: '{e}% łatwych · {h}% trudniejszych', s_adult: '18+ (pikantne kategorie i pytania, tylko dla dorosłych)', on: 'Wł.', off: 'Wył.', secs: '{n} s', mins: '{n} min',
+    s_q_time: 'Czas na odpowiedź', s_read_time: 'Czas na przeczytanie pytania', s_reveal_time: 'Czas na przeczytanie odpowiedzi przed „Dalej”', s_avatars: 'Awatary graczy', remote_link: 'Ustaw z telefonu:', remote_playing: 'Gra trwa', remote_playing_sub: 'Śledź ją na telewizorze. Ustawienia wrócą tu po końcu gry.', s_easy: 'Trudność pytań', easy_hard: '{e}% łatwych · {h}% trudniejszych', s_adult: '18+ (pikantne kategorie i pytania, tylko dla dorosłych)', on: 'Wł.', off: 'Wył.', secs: '{n} s', mins: '{n} min',
     open_lobby: 'Otwórz lobby', settings: 'Ustawienia', total_q: 'Łącznie pytań: {n}', duration: 'maks. ok. {n} min',
     phones: 'Połączone telefony: {n}', game_summary: 'Rundy: {rounds} · pytania w rundzie: {per}',
     round_of: 'Runda {n} z {total}', round_short: 'Runda {n}/{total}', n_questions: 'Pytań: {n}',
@@ -197,9 +197,9 @@ export function avatar(p, size, extra = '') {
   return `<div class="avatar ${extra}" style="width:${size}px;height:${size}px;font-size:${Math.round(size * scale)}px;background:${esc(p.color)}">${esc(p.avatar || [...p.name][0] || '?')}</div>`;
 }
 
-/** Overlapping avatars of the players who suggested a category ('' for none). @param {Player[]} ps @param {number} size */
 /** Under the one category in the vote that Claude thinks fits the round type best. @param {boolean} on */
 export const fitTag = on => on ? `<small class="fit">${t('fit_great')}</small>` : '';
+/** Overlapping avatars of the players who suggested a category ('' for none). @param {Player[]} ps @param {number} size */
 export const suggestedBy = (ps, size) => ps.length ? `<span class="by">${ps.map(p => avatar(p, size)).join('')}</span>` : '';
 
 // ---- Countdown: paints every [data-t] (seconds), [data-bar] (width) and [data-ring] (SVG stroke) ----

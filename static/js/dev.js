@@ -21,7 +21,7 @@ const scores = PLAYERS.map((p, i) => ({ ...p, score: [4200, 3650, 2900, 1500][i]
 const settings = { rounds: 3, per_round: 5, suggest_seconds: 90, category_seconds: 15, question_seconds: 60, read_seconds: 2, reveal_seconds: 3, easy_share: 60, avatars: true, adult: false,
   types: ['classic', 'odd', 'random', 'classic', 'classic', 'classic', 'classic', 'classic', 'classic', 'classic'] };
 const types = /** @type {const} */ (['classic', 'odd', 'truefalse', 'number', 'order', 'sort', 'compare', 'about', 'draw', 'random']);
-const options = { rounds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], per_round: [3, 5, 10, 15, 20], suggest_seconds: [30, 60, 90, 120], category_seconds: [5, 10, 15, 30], question_seconds: [10, 15, 20, 30, 45, 60], read_seconds: [1, 2, 3, 4, 5], reveal_seconds: [1, 3, 5, 7] };
+const options = { rounds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], per_round: [3, 5, 10, 15, 20], suggest_seconds: [30, 60, 90, 120], category_seconds: [5, 10, 15, 30], question_seconds: [10, 15, 20, 30, 45, 60], read_seconds: [1, 2, 3, 4, 5], reveal_seconds: [1, 3, 5, 7], easy_share: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100] };
 const rnd = { round: 2, rounds: 3, kind: /** @type {const} */ ('classic') };
 const cats = ['Space and astronomy', 'Movies of the 90s', 'Video games', 'Mythology'];
 const by = [[PLAYERS[0]], [], [PLAYERS[2], PLAYERS[3]], []];

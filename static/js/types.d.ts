@@ -19,7 +19,7 @@ export type SettingOptions = { [K in Exclude<keyof Settings, 'avatars' | 'adult'
 /** `players` are the ones connected right now; avatar pickers are shown only when settings.avatars is on;
  * `dev` is true with --dev (shows the dev bar) */
 export interface Info {
-  url: string; qr: string; lang: 'en' | 'pl'; avatars: string[]; colors: string[]; players: Player[]; settings: Settings; dev: boolean;
+  url: string; qr: string; remote: string; remote_qr: string; lang: 'en' | 'pl'; avatars: string[]; colors: string[]; players: Player[]; settings: Settings; dev: boolean;
 }
 /** Position in a multi-round game, and this round's type */
 export interface RoundInfo { round: number; rounds: number; kind: Kind }
