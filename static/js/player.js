@@ -1,6 +1,6 @@
 // @ts-check
 // Phone controller: join, suggest a category, vote, answer, see the result
-import { $, esc, t, num, loadInfo, shape, avatar, suggestedBy, startTimer, stopTimer, paintTimer, send, connect, fsSupported, isFullscreen, goFullscreen, isSprint, roundSize, INK, paintPoints, paintStrokes } from './common.js';
+import { $, esc, t, num, loadInfo, shape, tone, avatar, suggestedBy, startTimer, stopTimer, paintTimer, send, connect, fsSupported, isFullscreen, goFullscreen, isSprint, roundSize, INK, paintPoints, paintStrokes } from './common.js';
 
 /** @typedef {import('./types').ServerMsg} ServerMsg */
 /** @typedef {import('./types').QuestionMsg} QuestionMsg */
@@ -312,7 +312,7 @@ function questionScreen(m) {
   else if (m.kind === 'order') orderScreen(m);
   else if (isSprint(m.kind)) sprintScreen(m);
   else show(`${hdr(qNum(m), m.subject ? esc(m.subject.name) : roundLabel(m) || t('look_tv'))}
-    <div class="opts${m.options.length === 2 ? ' two' : ''}${lock(m)}">${m.options.map((o, i) => `<button class="ans a${i}" data-action="answer" data-i="${i}">${shape(i, 34)}<span>${esc(o)}</span></button>`).join('')}</div>`, { plain: true });
+    <div class="opts${m.options.length === 2 ? ' two' : ''}${lock(m)}">${m.options.map((o, i) => `<button class="ans a${tone(m.kind, i)}" data-action="answer" data-i="${i}">${shape(tone(m.kind, i), 34)}<span>${esc(o)}</span></button>`).join('')}</div>`, { plain: true });
 }
 /** @param {QuestionMsg} q @param {string} answer what was picked, already escaped @param {number} [i] colour and shape of a picked option */
 function lockedIn(q, answer, i) {
@@ -326,7 +326,7 @@ function lockedIn(q, answer, i) {
 /** @param {QuestionMsg} q @param {number} i */
 function choose(q, i) {
   send({ type: 'answer', i, t: took() });
-  lockedIn(q, esc(q.options[i]), i);
+  lockedIn(q, esc(q.options[i]), tone(q.kind, i));
 }
 
 /** Closest number: type a guess @param {QuestionMsg} m */

@@ -1,6 +1,6 @@
 // @ts-check
 // TV screen: lobby with QR code, then questions, reveals and final scores
-import { $, esc, t, num, loadInfo, shape, avatar, suggestedBy, startTimer, stopTimer, send, connect, fsSupported, goFullscreen, isSprint, roundSize, paintStrokes } from './common.js';
+import { $, esc, t, num, loadInfo, shape, tone, avatar, suggestedBy, startTimer, stopTimer, send, connect, fsSupported, goFullscreen, isSprint, roundSize, paintStrokes } from './common.js';
 
 /** @typedef {import('./types').ServerMsg} ServerMsg */
 /** @typedef {import('./types').QuestionMsg} QuestionMsg */
@@ -262,8 +262,8 @@ function answerBox(q, m) {
     return grid(items.map((it, i) => cell(it.text, i ? right[i - 1] : null, it.label, '')));
   }
   const counts = m.counts || [], votes = Math.max(1, counts.reduce((a, b) => a + b, 0));
-  return `<div class="agrid">${q.options.map((o, i) => `<div class="ans a${i} ${i === m.correct ? 'right pop' : 'dim'}${o.length > 26 ? ' long' : ''}">
-    <div class="row">${shape(i, 36)}<span class="grow">${esc(o)}</span>${i === m.correct ? check : ''}</div>
+  return `<div class="agrid">${q.options.map((o, i) => `<div class="ans a${tone(q.kind, i)} ${i === m.correct ? 'right pop' : 'dim'}${o.length > 26 ? ' long' : ''}">
+    <div class="row">${shape(tone(q.kind, i), 36)}<span class="grow">${esc(o)}</span>${i === m.correct ? check : ''}</div>
     <div class="row"><div class="vbar"><i style="width:${(counts[i] || 0) / votes * 100}%"></i></div><span class="votes">${counts[i] || 0}</span></div></div>`).join('')}</div>`;
 }
 

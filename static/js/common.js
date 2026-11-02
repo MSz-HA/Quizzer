@@ -187,6 +187,8 @@ const SHAPES = [
 ];
 /** @param {number} i @param {number} size */
 export const shape = (i, size) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">${SHAPES[i]}</svg>`;
+/** Colour/shape slot for option i: true/false swaps them so True is green and False red. @param {string} kind @param {number} i */
+export const tone = (kind, i) => kind === 'truefalse' ? 1 - i : i;
 
 // ---- Player avatars: emoji (or the name's initial) on the player's colour ----
 /** @param {Player} p @param {number} size @param {string} [extra] additional classes */
