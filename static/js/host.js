@@ -1,7 +1,7 @@
 // @ts-check
 // TV screen: lobby with QR code, then questions, reveals and final scores
 import { settingsRows, wireSettings, estimate } from './setup.js';
-import { $, esc, t, num, loadInfo, shape, tone, avatar, suggestedBy, fitTag, startTimer, stopTimer, send, connect, fsSupported, goFullscreen, isSprint, roundSize, paintStrokes } from './common.js';
+import { $, esc, t, num, loadInfo, shape, tone, avatar, suggestedBy, fitTag, startTimer, stopTimer, send, connect, fsSupported, goFullscreen, isSprint, roundSize, paintStrokes, POWER_ICON, powerLabel, cardKind } from './common.js';
 
 /** @typedef {import('./types').ServerMsg} ServerMsg */
 /** @typedef {import('./types').QuestionMsg} QuestionMsg */
@@ -19,6 +19,7 @@ import { $, esc, t, num, loadInfo, shape, tone, avatar, suggestedBy, fitTag, sta
 /** @typedef {import('./types').Award} Award */
 /** @typedef {import('./types').SortItem} SortItem */
 /** @typedef {import('./types').CompareItem} CompareItem */
+/** @typedef {import('./types').PowerRow} PowerRow */
 
 const app = /** @type {HTMLElement} */ ($('app'));
 /** @type {Partial<Info>} */
@@ -300,6 +301,22 @@ function final(m) {
 const bubble = (a, n) => `<div class="bubble b${n}" style="--d:${2.2 + n * .7}s">
   <div class="btext"><b>${esc(a.icon)} ${esc(a.title)}</b>${esc(a.text)}</div></div>`;
 
+/** This round's power-ups: a card per player with what was played on them and by whom @param {PowerRow[]} rows */
+const powerBoard = rows => `<div class="pboard">${rows.map((r, i) => `<div class="prow2 pop" style="animation-delay:${i * 60}ms">
+  ${avatar(r.player, 56)}<span class="nm">${esc(r.player.name)}</span><span class="got">${r.got.length ? r.got.map(g => `<span class="pchip" title="${esc(t('pw_' + g.power))}">${POWER_ICON[g.power]}${g.from ? avatar(g.from, 34) : ''}</span>`).join('') : '<span class="muted">–</span>'}</span></div>`).join('')}</div>`;
+/** Who has played a power-up so far @param {import('./types').DealingMsg} m */
+const dealt = m => m.players.map(p => `<span class="dealt${p.done ? ' done pop' : ''}">${avatar(p, 84, p.done ? '' : 'off')}</span>`).join('');
+/** What each power-up in the round does @param {import('./types').Power[]} powers */
+const legend = powers => `<div class="plegend">${powers.map(p => `<div class="ptile pk-${cardKind([p])}"><i>${POWER_ICON[p]}</i><b>${t('pw_' + p)}</b><small>${t('pd_' + p)}</small></div>`).join('')}</div>`;
+/** A short banner over whatever is on screen @param {string} html */
+function toast(html) {
+  const el = document.createElement('div');
+  el.className = 'toast pop';
+  el.innerHTML = html;
+  $('stage')?.append(el);
+  setTimeout(() => el.remove(), 2500);
+}
+
 /** @param {ServerMsg} m */
 function on(m) {
   switch (m.type) {
@@ -348,9 +365,19 @@ function on(m) {
     }
     case 'ready':
       app.innerHTML = `<div class="top"><span class="chip pill">${m.rounds > 1 ? `${t('round_of', { n: m.round, total: m.rounds })} · ` : ''}${roundSize(m)}</span></div>
-        <div class="col center"><h1 class="huge pop">${esc(m.category)}</h1>
-          <p class="rule pop"><b>${t('k_' + m.kind)}</b>${t('r_' + m.kind)}</p><p class="muted big">${t('hold_tv')}</p></div>`;
+        <div class="col center${m.powers ? ' withpowers' : ''}"><h1 class="huge pop">${esc(m.category)}</h1>
+          <p class="rule pop"><b>${t('k_' + m.kind)}</b>${t('r_' + m.kind)}</p>${m.powers ? powerBoard(m.powers) : ''}<p class="muted big">${t('hold_tv')}</p></div>`;
       break;
+    case 'dealing':
+      if ($('dealt')) setHTML('dealt', dealt(m));
+      else {
+        app.innerHTML = `<div class="top"><span class="chip pill">${roundPrefix(m)}${t('k_' + m.kind)}</span>${ring(132)}</div>
+          <div class="col center dealing"><h1 class="huge">${t('dealing_tv')}</h1>${legend(m.powers)}
+            <div class="who" id="dealt">${dealt(m)}</div></div>`;
+        startTimer(m.seconds);
+      }
+      break;
+    case 'boom': toast(t('boom_tv', { name: `${avatar(m.player, 48)}<b>${esc(m.player.name)}</b>` })); break;
     case 'about':
       answered = new Set();
       app.innerHTML = `<div class="top"><span class="chip pill">${m.rounds > 1 ? `${t('round_of', { n: m.round, total: m.rounds })} · ` : ''}${t('k_about')}</span>${ring(132)}</div>

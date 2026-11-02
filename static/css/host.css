@@ -215,3 +215,26 @@ h1,h2,p{margin:0}
 .drawq .spot{font-size:48px;flex-wrap:wrap}
 .drawrv{display:flex;gap:32px;align-items:center}
 .drawrv .board{width:640px;height:480px}
+
+/* Power-ups: who is picking, what each player got this round, and bomb banners */
+.withpowers{gap:24px}
+.withpowers .huge{font-size:72px}
+.withpowers .rule{font-size:32px;padding:16px 32px}
+.withpowers .rule b{font-size:38px}
+.pboard{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 28px;width:1500px;text-align:left}
+.prow2{display:flex;align-items:center;gap:16px;background:var(--card);border-radius:20px;padding:8px 18px;font-size:30px;box-shadow:0 6px 0 var(--card-edge)}
+.prow2 .nm{width:220px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0}
+.prow2 .got{display:flex;flex-wrap:wrap;gap:8px;min-width:0}
+.pchip{display:flex;align-items:center;gap:4px;background:var(--bg);border-radius:999px;padding:4px 8px 4px 10px;font-size:30px}
+.toast{position:absolute;top:40px;left:0;right:0;margin:0 auto;width:fit-content;z-index:30;display:flex;align-items:center;gap:16px;
+  background:#E2401C;color:#fff;font-size:40px;padding:14px 32px;border-radius:999px;box-shadow:0 8px 0 #7A1A08}
+/* Dealing power-ups: what each one does, and who has picked */
+.dealing{gap:44px}
+.plegend{display:flex;flex-wrap:wrap;justify-content:center;gap:22px;max-width:1700px}
+.ptile{width:220px;display:flex;flex-direction:column;align-items:center;gap:4px;padding:20px 16px 22px;border-radius:24px;background:var(--c);color:var(--t);box-shadow:0 8px 0 var(--e)}
+.ptile i{font-style:normal;font-size:64px;line-height:1.1}
+.ptile b{font-size:30px;line-height:1.1}
+.ptile small{font-size:19px;line-height:1.25;opacity:.85}
+.dealt{position:relative}
+.dealt.done::after{content:'✓';position:absolute;right:-4px;bottom:-4px;width:34px;height:34px;border-radius:50%;background:var(--mint);color:var(--bg);
+  font-size:22px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 4px var(--bg)}

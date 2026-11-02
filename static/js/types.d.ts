@@ -12,16 +12,24 @@ export interface Stroke { c: number; p: [number, number][] }
 /** Game settings, changed by the host on the TV's setup screen */
 /** `suggest_seconds`: suggesting categories before round 1; `category_seconds`: voting on a category each round */
 /** `read_seconds`: reading the question before the answers show on phones; `reveal_seconds`: reading the answer before Continue works */
+/** `powerups`: deal power-ups each round (only the ones that fit the round type; none in draw rounds) */
 /** `speed_window`: seconds over which a right answer's speed bonus (up to 500) falls to 0 (Advanced section) */
 /** `types`: each round's type (one per possible round, only the first `rounds` are used); random is drawn at the start */
-export interface Settings { rounds: number; per_round: number; suggest_seconds: number; category_seconds: number; question_seconds: number; read_seconds: number; reveal_seconds: number; easy_share: number; speed_window: number; avatars: boolean; adult: boolean; types: (Kind | 'random')[] }
+export interface Settings { rounds: number; per_round: number; suggest_seconds: number; category_seconds: number; question_seconds: number; read_seconds: number; reveal_seconds: number; easy_share: number; speed_window: number; avatars: boolean; adult: boolean; powerups: boolean; types: (Kind | 'random')[] }
 /** Allowed values for each numeric setting */
-export type SettingOptions = { [K in Exclude<keyof Settings, 'avatars' | 'adult' | 'types'>]: number[] };
+export type SettingOptions = { [K in Exclude<keyof Settings, 'avatars' | 'adult' | 'powerups' | 'types'>]: number[] };
 /** `players` are the ones connected right now; avatar pickers are shown only when settings.avatars is on;
  * `dev` is true with --dev (shows the dev bar) */
 export interface Info {
   url: string; qr: string; remote: string; remote_qr: string; lang: 'en' | 'pl'; avatars: string[]; colors: string[]; players: Player[]; settings: Settings; dev: boolean;
 }
+/** Power-ups (see POWERS in main.py). Attacks (freeze, gloop, dziobaki, spin, bombs) hit their target on every
+ * question of the round and stack; double (on yourself) and bet (you also get the target's points) count for one answer */
+export type Power = 'freeze' | 'gloop' | 'dziobaki' | 'spin' | 'bombs' | 'double' | 'bet';
+/** A card: one power, or 2 attacks on the same target (mixed) */
+export type Card = Power[];
+/** A player and the power-ups played on them this round; `from` is null for their own double */
+export interface PowerRow { player: Player; got: { power: Power; from: Player | null }[] }
 /** Position in a multi-round game, and this round's type */
 export interface RoundInfo { round: number; rounds: number; kind: Kind }
 export interface Score extends Player { score: number; streak: number; best: number; correct: number }
@@ -34,6 +42,8 @@ export interface You {
   value?: number; placed?: number; right?: number; of?: number;
   /** About rounds: the question was about you; `right` of `of` players guessed your answer */
   spotlight?: boolean;
+  /** Power-ups: extra points from your double, and from your bets on other players */
+  double?: number; bets?: (Player & { points: number })[];
 }
 
 // Server -> client
@@ -57,7 +67,13 @@ export type CategoryOkMsg = { type: 'category_ok'; text: string };
 export type GeneratingMsg = RoundInfo & { type: 'generating'; categories: string[]; total: number };
 export type ProgressMsg = { type: 'progress'; done: number; total: number };
 /** Questions are ready; the round starts when a player holds Continue */
-export type ReadyMsg = RoundInfo & { type: 'ready'; category: string; total: number };
+export type ReadyMsg = RoundInfo & { type: 'ready'; category: string; total: number; powers?: PowerRow[] };
+/** To each player, after the vote: 2 cards to pick one from, and the players a card can be played on */
+export type PowersMsg = RoundInfo & { type: 'powers'; cards: Card[]; targets: Player[]; seconds: number };
+/** TV only: while players pick power-ups; `done` once they have played one */
+export type DealingMsg = RoundInfo & { type: 'dealing'; seconds: number; powers: Power[]; players: (Player & { done: boolean })[] };
+/** TV only: a player touched a bomb */
+export type BoomMsg = { type: 'boom'; player: Player };
 export interface SortItem { text: string; bucket: number }
 /** `value` is compared, `label` is shown (e.g. 19970101 and "1 Jan 1997") */
 export interface CompareItem { text: string; value: number; label: string }
@@ -72,6 +88,8 @@ export type QuestionMsg = RoundInfo & {
   buckets?: string[]; items?: (SortItem | CompareItem)[]; higher?: boolean; key?: number[];
   /** About rounds: who the question is about (they don't answer it) */
   subject?: Player;
+  /** This round's power-ups, as in ReadyMsg */
+  powers?: PowerRow[];
 };
 /** About rounds, before the questions: each player answers the `asks` whose subject they are, all at the same time */
 export type AboutMsg = RoundInfo & { type: 'about'; seconds: number; asks: { subject: Player; q: string; options: string[] }[] };
@@ -107,7 +125,7 @@ export type ScoresMsg = { type: 'scores'; scores: Score[]; final: boolean; quest
 export type ErrorMsg = { type: 'error'; message: string };
 export type ServerMsg =
   | LobbyMsg | SetupMsg | JoinedMsg | CategoriesMsg | CatsMsg | CategoryOkMsg | PreparingMsg | VoteMsg | VotesMsg | PickMsg | GeneratingMsg | ProgressMsg
-  | ReadyMsg | AboutMsg | QuestionMsg | SecretMsg | InkMsg | StrokesMsg | AnsweredMsg | RevealMsg | RoundEndMsg | ScoresMsg | ErrorMsg;
+  | ReadyMsg | PowersMsg | DealingMsg | BoomMsg | AboutMsg | QuestionMsg | SecretMsg | InkMsg | StrokesMsg | AnsweredMsg | RevealMsg | RoundEndMsg | ScoresMsg | ErrorMsg;
 
 // Client -> server
 export type ClientMsg =
@@ -122,6 +140,8 @@ export type ClientMsg =
   // draw rounds, from the drawer: points for stroke s (the last one, or the next index to start one), colour c
   | { type: 'ink'; s: number; c: number; p: [number, number][] }
   | { type: 'undo' } | { type: 'clear' }
+  | { type: 'power'; card: number; target: number }  // index in PowersMsg.cards and .targets (-1 for double)
+  | { type: 'boom' }  // touched a bomb (power-up)
   | { type: 'continue' }  // after holding the Continue button
   // TV only:
   | { type: 'settings'; settings: Partial<Settings> }  // while on the setup screen

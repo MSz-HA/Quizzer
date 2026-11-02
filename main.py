@@ -48,6 +48,16 @@ DRAW_SECONDS = 60  # least time for a drawing, whatever the answer time
 INK_COLORS = 4  # pen colours on the drawer's phone
 MAX_POINTS = 20000  # per drawing, so a misbehaving phone can't flood the TV
 TRUE_FALSE = {"en": ["True", "False"], "pl": ["Prawda", "Fałsz"]}[LANG]
+# Power-ups: dealt after the category vote (while Claude writes the questions), 2 cards per player, each plays one.
+# Attacks hit their target on every question of the round (they stack); double (on yourself) and bet (on another
+# player: you also get their points) count for one answer. A mixed card is 2 attacks on the same target. The effects
+# are drawn on the phones (powers.js); only the ones that make sense for the round type are dealt
+ATTACKS = ("freeze", "gloop", "dziobaki", "spin", "bombs")
+POWERS = (*ATTACKS, "double", "bet")
+POWER_FIT = {**{k: POWERS for k in ("classic", "odd", "order", "sort", "compare", "about")},
+             "truefalse": ("freeze", "bombs", "double", "bet"), "number": ("double", "bet"), "draw": ()}
+DEAL_SECONDS = 20
+MIX_CHANCE = .15
 
 # Values the host can pick on the TV's setup screen (the .env defaults are always allowed too)
 OPTIONS = {
@@ -120,7 +130,7 @@ class State:
     hosts = set()
     phase = "setup"   # setup | lobby | running | final | error
     settings = {"rounds": 7, "per_round": 5, "suggest_seconds": SUGGEST_SECONDS, "category_seconds": CATEGORY_SECONDS,
-                "question_seconds": Q_SECONDS, "read_seconds": 5, "reveal_seconds": 7, "easy_share": 60, "speed_window": 8, "avatars": FEATURE_AVATARS, "adult": False,
+                "question_seconds": Q_SECONDS, "read_seconds": 5, "reveal_seconds": 7, "easy_share": 60, "speed_window": 8, "avatars": FEATURE_AVATARS, "adult": False, "powerups": True,
                 "types": ["random"] * max(OPTIONS["rounds"])}  # in memory only; types: each round's type (see TYPES)
     used = []         # categories already played this game
     log = []          # one entry per question this game, for the awards: {"cat", "q", "seconds", "res", "ranks", "kind",
@@ -142,6 +152,17 @@ class State:
     strokes = []      # draw rounds: the current drawing, [{"c": colour index, "p": [[x, y], ...]}] with x, y in 0..1
     q = None
     t0 = 0.0
+    round = 0
+    hands = {}        # power-ups: pid -> the 2 cards dealt this round, each a list of powers
+    targets = {}      # pid -> pids they may play a card on
+    played = {}       # pid -> (card index, target pid or None for double)
+    deal = None       # (round info, monotonic time the dealing ends), while dealing
+    round_plays = []  # cards played this round: {"round", "from", "to", "powers"}; double's "to" is the player
+    hits = {}         # pid -> {attack: stacks} on them this round
+    doubles = set()   # pids whose next answer this round scores double
+    bets = []         # (bettor, target): the bettor also gets the target's points on the target's next answer
+    plays = []        # every card played this game, for the awards
+    booms = {}        # pid -> bombs touched this game
 
 
 g = State()
@@ -199,7 +220,7 @@ async def show_lobby():
 
 def update_settings(new):
     for k, v in new.items():
-        if (k in OPTIONS and type(v) is int and v in OPTIONS[k]) or (k in ("avatars", "adult") and type(v) is bool):
+        if (k in OPTIONS and type(v) is int and v in OPTIONS[k]) or (k in ("avatars", "adult", "powerups") and type(v) is bool):
             g.settings[k] = v
         elif k == "types" and type(v) is list and len(v) == len(g.settings["types"]) and all(x in TYPES for x in v):
             g.settings[k] = v
@@ -675,9 +696,26 @@ def longest_run(picks, key):
     return best
 
 
+def boost(deltas):
+    """Double and bet on top of the question's points (`deltas`, changed in place), for the players whose next
+    answer this was. Returns each player's extra points for their phone: {"double": points, "bets": [{player,
+    "points"}]}; a bet pays the target's points before their own double."""
+    base, extra = dict(deltas), {}
+    for pid in [p for p in g.doubles if p in g.answers]:
+        g.doubles.discard(pid)
+        deltas[pid] = deltas.get(pid, 0) + base.get(pid, 0)
+        extra.setdefault(pid, {})["double"] = base.get(pid, 0)
+    for frm, to in [b for b in g.bets if b[1] in g.answers]:
+        g.bets.remove((frm, to))
+        deltas[frm] = deltas.get(frm, 0) + base.get(to, 0)
+        extra.setdefault(frm, {}).setdefault("bets", []).append({**public(g.players[to]), "points": base.get(to, 0)})
+    return extra
+
+
 async def reveal(q, seconds, worth, wait, window):
     g.accepting = None
     deltas, ok, times, show, mine = score(q, worth, window)
+    extra = boost(deltas)
     for pid, p in g.players.items():
         p["score"] += deltas.get(pid, 0)
         if pid == q.get("subject"):  # didn't guess, so no change to the streak
@@ -695,7 +733,8 @@ async def reveal(q, seconds, worth, wait, window):
                     **({"run": longest_run(g.answers[pid], q["key"])} if q["kind"] in SPRINT_KINDS and pid in g.answers
                        else {}),
                     **mine.get(pid, {})} for pid in active()}
-    g.log.append({"cat": q["cat"], "q": q["q"], "seconds": seconds,
+    g.log.append({"cat": q["cat"], "q": q["q"], "seconds": seconds, "round": g.round, "deltas": deltas, "extra": extra,
+                  "hit": {pid: sum(h.values()) for pid, h in g.hits.items()},  # attack stacks on each player
                   "res": {pid: (pid in ok, times.get(pid)) for pid in guessers()},
                   "ranks": {pid: i + 1 for i, pid in enumerate(order)},
                   "kind": q["kind"], "answer": q.get("answer"), "unit": q.get("unit", ""), "subject": q.get("subject"),
@@ -710,7 +749,8 @@ async def reveal(q, seconds, worth, wait, window):
         p = g.players[pid]
         await send(p["ws"], {**base, "you": {
             "answered": pid in g.answers, "correct": pid in ok, "delta": deltas.get(pid, 0),
-            "score": p["score"], "rank": names.index(p["name"]) + 1, "streak": p["streak"], **mine.get(pid, {})}})
+            "score": p["score"], "rank": names.index(p["name"]) + 1, "streak": p["streak"], **mine.get(pid, {}),
+            **extra.get(pid, {})}})
 
 
 def award_facts():
@@ -781,7 +821,7 @@ def award_facts():
         if rated and rated[0][0] <= .25:
             _, n, pid, cat, total = rated[0]
             out.append(("blind_spot", pid, {"cat": cat, "n": n, "total": total}))
-    return out + round_type_facts(log)
+    return out + round_type_facts(log) + power_facts(log)
 
 
 def number_text(v, unit=""):
@@ -866,6 +906,62 @@ def round_type_facts(log):
     return out
 
 
+def power_facts(log):
+    """Awards for power-ups, from the cards played (g.plays), bombs touched (g.booms) and the log. Same format as
+    award_facts()."""
+    out, name = [], lambda pid: g.players[pid]["name"] if pid in g.players else "?"
+    attacks = [(pl["from"], pl["to"], pl["round"]) for pl in g.plays for p in pl["powers"] if p in ATTACKS]
+
+    def most(counts, award, least):
+        if counts and max(counts.values()) >= least:
+            pid = max(counts, key=counts.get)
+            out.append((award, pid, {"n": counts[pid]}))
+    got, sent, fans, tough = {}, {}, {}, {}
+    for frm, to, _ in attacks:
+        got[to], sent[frm] = got.get(to, 0) + 1, sent.get(frm, 0) + 1
+    for pl in g.plays:
+        if "bet" in pl["powers"]:
+            fans[pl["to"]] = fans.get(pl["to"], 0) + 1
+    for e in log:  # right answers while hit by 2+ attacks at once
+        for pid, (ok, _) in e["res"].items():
+            if ok and e.get("hit", {}).get(pid, 0) >= 2:
+                tough[pid] = tough.get(pid, 0) + 1
+    most(got, "public_enemy", 3)
+    most(sent, "troublemaker", 3)
+    most(fans, "favourite", 2)
+    most(dict(g.booms), "sapper", 2)
+    most(tough, "unbreakable", 2)
+    if rev := [(frm, to) for frm, to, r in attacks if any(f == to and t == frm and r2 < r for f, t, r2 in attacks)]:
+        frm, to = random.choice(rev)
+        out.append(("revenge", frm, {"target": name(to)}))
+    won, best, lost, flops = {}, {}, [], []  # pid -> points from bets; pid -> (points, target) of their best bet
+    for e in log:
+        for pid, x in e.get("extra", {}).items():
+            for b in x.get("bets", []):
+                won[pid] = won.get(pid, 0) + b["points"]
+                best[pid] = max(best.get(pid, (0, "")), (b["points"], b["name"]))
+                if not b["points"]:
+                    lost.append((pid, b["name"]))
+            if x.get("double") == 0:
+                flops.append(pid)
+    if won and max(won.values()) >= 500:
+        pid = max(won, key=won.get)
+        out.append(("insider", pid, {"n": number_text(won[pid]), "target": best[pid][1]}))
+    if lost:
+        pid, target = random.choice(lost)
+        out.append(("lost_shirt", pid, {"target": target}))
+    if flops:
+        out.append(("double_nothing", random.choice(flops), {}))
+    points = {}  # (round, pid) -> points that round
+    for e in log:
+        for pid, d in e.get("deltas", {}).items():
+            points[(e["round"], pid)] = points.get((e["round"], pid), 0) + d
+    if fire := [(frm, to) for frm, to, r in attacks if points.get((r, to), 0) > points.get((r, frm), 0)]:
+        frm, to = random.choice(fire)
+        out.append(("backfire", frm, {"target": name(to)}))
+    return out
+
+
 def pick_awards(facts, k=5):
     """Up to k awards at random, spread over as many players as possible."""
     random.shuffle(facts)
@@ -906,6 +1002,80 @@ async def send_drawing(ws, full=True):
             await send(ws, {"type": "strokes", "strokes": g.strokes})
 
 
+def hand(fit, others):
+    """2 different cards from the powers in `fit` (fewer if there aren't 2), sometimes a mixed one. Without anyone
+    else to play on, only double."""
+    pool = [p for p in fit if p == "double" or others]
+    attacks = [p for p in pool if p in ATTACKS]
+    cards = []
+    for _ in range(20):
+        if len(cards) == 2 or not pool:
+            break
+        card = sorted(random.sample(attacks, 2)) if len(attacks) >= 2 and random.random() < MIX_CHANCE \
+            else [random.choice(pool)]
+        if card not in cards:
+            cards.append(card)
+    return cards
+
+
+def deal_left():
+    return max(1, round(g.deal[1] - time.monotonic())) if g.deal else 0
+
+
+def powers_msg(pid):
+    """A player's 2 cards and who they can play them on."""
+    return {"type": "powers", **g.deal[0], "cards": g.hands[pid], "seconds": deal_left(),
+            "targets": [public(g.players[t]) for t in g.targets[pid]]}
+
+
+def dealing_msg():
+    """TV: the power-ups in this round and who has played a card."""
+    return {"type": "dealing", **g.deal[0], "seconds": deal_left(), "powers": list(POWER_FIT[g.deal[0]["kind"]]),
+            "players": [{**public(g.players[pid]), "done": pid in g.played} for pid in g.hands if g.players[pid]["ws"]]}
+
+
+async def deal_powers(rnd):
+    """Deal 2 cards to each player and wait until everyone has played one; anyone who doesn't in time plays a random
+    card on a random target. Then work out the round's effects."""
+    pids = active()
+    g.hands, g.targets, g.played = {}, {}, {}
+    for pid in pids:
+        others = [o for o in pids if o != pid]
+        if cards := hand(POWER_FIT[rnd["kind"]], others):
+            g.hands[pid], g.targets[pid] = cards, others
+    if not g.hands:
+        return
+    g.deal, g.accepting = (rnd, time.monotonic() + DEAL_SECONDS), "power"
+    await asyncio.gather(*(send(g.players[pid]["ws"], powers_msg(pid)) for pid in g.hands))
+    await to_hosts(dealing_msg())
+    await wait_for(DEAL_SECONDS, lambda: all(pid in g.played or not g.players[pid]["ws"] for pid in g.hands))
+    g.accepting, g.deal = None, None
+    for pid, cards in g.hands.items():
+        if pid not in g.played:
+            i = random.randrange(len(cards))
+            g.played[pid] = (i, None if cards[i] == ["double"] else random.choice(g.targets[pid]))
+    for pid, (i, to) in g.played.items():
+        play = {"round": rnd["round"], "from": pid, "to": to or pid, "powers": g.hands[pid][i]}
+        g.round_plays.append(play)
+        g.plays.append(play)
+        for p in play["powers"]:
+            if p in ATTACKS:
+                g.hits.setdefault(play["to"], {})[p] = g.hits.get(play["to"], {}).get(p, 0) + 1
+            elif p == "double":
+                g.doubles.add(pid)
+            else:
+                g.bets.append((pid, play["to"]))
+
+
+def power_rows():
+    """Every connected player with the power-ups played on them this round, and who played them (none for their own
+    double). Sent with the round's ready screen and each question; empty without power-ups."""
+    return {"powers": [{"player": public(g.players[pid]),
+                        "got": [{"power": p, "from": None if p == "double" else public(g.players[pl["from"]])}
+                                for pl in g.round_plays if pl["to"] == pid for p in pl["powers"]]}
+                       for pid in active()]} if g.round_plays else {}
+
+
 def about_questions(n):
     """n questions for an about round, each about one player, taking turns in random order. Questions don't
     repeat within a game while there are unused ones."""
@@ -935,7 +1105,7 @@ async def ask_about(rnd, questions):
 
 async def run_game():
     s = dict(g.settings)  # this game's settings
-    g.phase, g.used, g.log, g.drawn = "running", [], [], {}
+    g.phase, g.used, g.log, g.drawn, g.plays, g.booms = "running", [], [], {}, [], {}
     asked = 0
     # 1. Before the first round everyone suggests a category, once per game. Claude tidies them in one call
     g.cats, g.surprised, g.accepting = {}, set(), "category"
@@ -968,21 +1138,26 @@ async def run_game():
                    else max(DRAW_SECONDS, s["question_seconds"]) if kind == "draw" else s["question_seconds"])
         # Speed bonus window; guessing a drawing keeps the whole time, since the drawing takes shape slowly
         window = seconds if kind == "draw" else min(seconds, s["speed_window"])
+        g.round, g.hits, g.doubles, g.bets, g.round_plays, g.hands = r, {}, set(), [], [], {}
+        powers = s["powerups"] and bool(POWER_FIT[kind])
         if kind == "about":  # built-in questions about the players, no vote
             questions = about_questions(total)
             cat = questions[0]["cat"] if questions else ""
-            await bc({"type": "ready", **rnd, "category": cat, "total": len(questions)})
+            if powers:
+                await deal_powers(rnd)
+            await bc({"type": "ready", **rnd, "category": cat, "total": len(questions), **power_rows()})
             await hold()
             questions = await ask_about(rnd, questions)
         else:
-            questions = await vote_and_generate(s, rnd, total, subs, quirky[v] if v < len(quirky) else None, quirky, who)
+            questions = await vote_and_generate(s, rnd, total, subs, quirky[v] if v < len(quirky) else None, quirky, who,
+                                                powers)
             v += 1
             if not questions:
                 g.phase = "error"
                 await bc({"type": "error", "message": "Claude did not return any usable questions. "
                           "Check the server console and your API key, then try again."})
                 return
-            await bc({"type": "ready", **rnd, "category": questions[0]["cat"], "total": len(questions)})
+            await bc({"type": "ready", **rnd, "category": questions[0]["cat"], "total": len(questions), **power_rows()})
             await hold()
         # 3. Play the round, moving on only when a player holds Continue
         for i, q in enumerate(questions):
@@ -994,7 +1169,7 @@ async def run_game():
                       "options": q.get("options", []), "unit": q.get("unit", ""),
                       **{k: q[k] for k in ("buckets", "items", "higher", "key") if k in q},
                       **({"subject": public(g.players[q["subject"]])} if "subject" in q else {}),
-                      "seconds": seconds, "lock": s["read_seconds"]})
+                      "seconds": seconds, "lock": s["read_seconds"], **power_rows()})
             if kind == "draw":
                 await send_drawing(g.players[q["subject"]]["ws"], full=False)
             await to_hosts(answered_msg())
@@ -1009,11 +1184,11 @@ async def run_game():
     await bc({"type": "scores", "scores": board(), "final": True, "questions": asked, "awards": make_awards()})
 
 
-async def vote_and_generate(s, rnd, total, subs, own, quirky, who):
+async def vote_and_generate(s, rnd, total, subs, own, quirky, who, powers):
     """2. Vote on CHOICES categories: suggestions not played yet, this round's quirky category from tidy() as a
     wildcard (`own`, or another round's if it was played), topped up with random topics. Within each group, ones
     tidy() rated tricky for the round type come last. The one category rated a great fit is marked, if only one is. Most votes wins, ties are drawn at random. Claude's questions on the winner are
-    generated right away while the TV shows the result."""
+    generated right away while the TV shows the result, and meanwhile power-ups are dealt (if `powers`)."""
     kind, played = rnd["kind"], {u.casefold() for u in g.used}
     # Shuffled, then the ones tricky for this round type last, so they only get in when there aren't enough others
     fits_last = lambda cs: sorted(random.sample(cs, len(cs)), key=lambda c: tricky(c, kind))
@@ -1038,6 +1213,8 @@ async def vote_and_generate(s, rnd, total, subs, own, quirky, who):
     await bc({"type": "pick", **rnd, "options": options, "by": by, "counts": counts, "chosen": cat,
               "total": total})
     await asyncio.sleep(RESULT_SECONDS)
+    if powers:
+        await deal_powers(rnd)
     if not gen.done():
         await bc({"type": "generating", **rnd, "categories": [cat], "total": total})
     return await gen
@@ -1065,6 +1242,8 @@ async def ws_endpoint(ws: WebSocket, role: str = "player"):
         if g.accepting in ("answer", "about"):
             await send(ws, answered_msg())
             await send_drawing(ws)
+        if g.accepting == "power":
+            await send(ws, dealing_msg())
     idle = lambda: g.task is None or g.task.done()
     try:
         while True:
@@ -1103,6 +1282,8 @@ async def ws_endpoint(ws: WebSocket, role: str = "player"):
                 else:
                     await send(ws, g.last)
                     await send_drawing(ws)
+                    if g.accepting == "power" and pid in g.hands and pid not in g.played:
+                        await send(ws, powers_msg(pid))
             elif pid in g.players and t == "category" and g.accepting == "category":
                 text = fresh_topics(1)[0] if m.get("surprise") else str(m.get("text", ""))
                 text = " ".join(text.split())[:40]
@@ -1164,6 +1345,19 @@ async def ws_endpoint(ws: WebSocket, role: str = "player"):
                 elif t in ("undo", "clear"):
                     g.strokes = g.strokes[:-1] if t == "undo" else []
                     await to_hosts({"type": "strokes", "strokes": g.strokes})
+            elif pid in g.hands and t == "power" and g.accepting == "power" and pid not in g.played:
+                c, k, cards = m.get("card"), m.get("target"), g.hands[pid]
+                if type(c) is int and 0 <= c < len(cards):
+                    if cards[c] == ["double"]:
+                        g.played[pid] = (c, None)
+                    elif type(k) is int and 0 <= k < len(g.targets[pid]):
+                        g.played[pid] = (c, g.targets[pid][k])
+                    else:
+                        continue
+                    await to_hosts(dealing_msg())
+            elif pid in g.players and t == "boom" and g.accepting == "answer" and g.hits.get(pid, {}).get("bombs"):
+                g.booms[pid] = g.booms.get(pid, 0) + 1
+                await to_hosts({"type": "boom", "player": public(g.players[pid])})
             elif pid in g.players and t == "continue" and g.accepting == "continue":
                 g.go.set()
     except (WebSocketDisconnect, RuntimeError, json.JSONDecodeError):

@@ -18,7 +18,7 @@ const PLAYERS = [
 export const ME = PLAYERS[1];
 const scores = PLAYERS.map((p, i) => ({ ...p, score: [4200, 3650, 2900, 1500][i], streak: [4, 1, 0, 2][i], best: [5, 3, 2, 2][i], correct: [8, 7, 6, 3][i] }));
 /** @type {import('./types').Settings} */
-const settings = { rounds: 3, per_round: 5, suggest_seconds: 90, category_seconds: 15, question_seconds: 60, read_seconds: 2, reveal_seconds: 3, easy_share: 60, speed_window: 8, avatars: true, adult: false,
+const settings = { rounds: 3, per_round: 5, suggest_seconds: 90, category_seconds: 15, question_seconds: 60, read_seconds: 2, reveal_seconds: 3, easy_share: 60, speed_window: 8, avatars: true, adult: false, powerups: true,
   types: ['classic', 'odd', 'random', 'classic', 'classic', 'classic', 'classic', 'classic', 'classic', 'classic'] };
 const types = /** @type {const} */ (['classic', 'odd', 'truefalse', 'number', 'order', 'sort', 'compare', 'about', 'draw', 'random']);
 const options = { rounds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], per_round: [3, 5, 10, 15, 20], suggest_seconds: [30, 60, 90, 120], category_seconds: [5, 10, 15, 30], question_seconds: [10, 15, 20, 30, 45, 60], read_seconds: [1, 2, 3, 4, 5], reveal_seconds: [1, 3, 5, 7], easy_share: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100], speed_window: [4, 6, 8, 10, 15, 20] };
@@ -93,6 +93,35 @@ const KIND_SCREENS = /** @type {{ key: string, label: string, only?: 'host' | 'p
   { key: 'r_compare', label: 'R Cmp', msgs: [qCompare, { type: 'reveal', kind: 'compare', right: [4, 3, 1, 4, 2], players: 4, explanation: 'Psycho is the oldest of them all.', scores, you: { ...you, right: 3, of: 5 } }] },
 ]);
 
+// Power-ups: the cards, the TV while players pick, the round's summary, each attack on this phone, and the bonuses
+/** @type {import('./types').PowerRow[]} */
+const powerRows = [
+  { player: PLAYERS[0], got: [{ power: 'bet', from: PLAYERS[2] }, { power: 'spin', from: PLAYERS[3] }] },
+  { player: PLAYERS[1], got: [{ power: 'freeze', from: PLAYERS[0] }, { power: 'gloop', from: PLAYERS[0] }, { power: 'bombs', from: PLAYERS[3] }, { power: 'double', from: null }] },
+  { player: PLAYERS[2], got: [{ power: 'dziobaki', from: PLAYERS[1] }] },
+  { player: PLAYERS[3], got: [] },
+];
+/** A question with `n` stacks of each of `powers` on this phone @param {QuestionMsg} q @param {import('./types').Power[]} powers @param {number} [n] */
+const fxQ = (q, powers, n = 1) => ({ ...q, powers: [{ player: ME, got: powers.flatMap(power => Array(n).fill({ power, from: PLAYERS[0] })) }] });
+const POWER_SCREENS = /** @type {{ key: string, label: string, only?: 'host' | 'player', msgs: ServerMsg[] }[]} */ ([
+  { key: 'powers', label: 'Powers', only: 'player', msgs: [{ type: 'powers', ...rnd, cards: [['bet'], ['freeze', 'gloop']], targets: PLAYERS.filter(p => p !== ME), seconds: 20 }] },
+  { key: 'powers2', label: 'Powers 2', only: 'player', msgs: [{ type: 'powers', ...rnd, cards: [['bombs'], ['double']], targets: [...PLAYERS.filter(p => p !== ME), ...PLAYERS.filter(p => p !== ME)], seconds: 20 }] },
+  { key: 'dealing', label: 'Dealing', only: 'host', msgs: [{ type: 'dealing', ...rnd, seconds: 20, powers: ['freeze', 'gloop', 'dziobaki', 'spin', 'bombs', 'double', 'bet'], players: PLAYERS.map((p, i) => ({ ...p, done: i < 2 })) }] },
+  { key: 'ready_fx', label: 'Ready fx', msgs: [{ type: 'ready', ...rnd, category: cats[0], total: 5, powers: powerRows }] },
+  { key: 'fx_freeze', label: 'Freeze', only: 'player', msgs: [fxQ(question, ['freeze'])] },
+  { key: 'fx_gloop', label: 'Gloop', only: 'player', msgs: [fxQ(question, ['gloop'])] },
+  { key: 'fx_letters', label: 'Dziobaki', only: 'player', msgs: [fxQ(question, ['dziobaki'])] },
+  { key: 'fx_letters3', label: 'Dziobaki×3', only: 'player', msgs: [fxQ(question, ['dziobaki'], 3)] },
+  { key: 'fx_spin', label: 'Spin', only: 'player', msgs: [fxQ(question, ['spin'])] },
+  { key: 'fx_spin3', label: 'Spin×3', only: 'player', msgs: [fxQ(question, ['spin'], 3)] },
+  { key: 'fx_bombs', label: 'Bombs', only: 'player', msgs: [fxQ(question, ['bombs'])] },
+  { key: 'fx_mix', label: 'Fx all', only: 'player', msgs: [fxQ(question, ['freeze', 'gloop', 'dziobaki', 'spin', 'bombs'])] },
+  { key: 'fx_sort', label: 'Fx Sort', only: 'player', msgs: [fxQ(qSort, ['dziobaki', 'bombs', 'gloop'])] },
+  { key: 'fx_order', label: 'Fx 1234', only: 'player', msgs: [fxQ(qOrder, ['spin', 'gloop'])] },
+  { key: 'r_bonus', label: 'R bonus', only: 'player', msgs: [question, { ...reveal, you: { ...reveal.you, delta: 2460, double: 820, bets: [{ ...PLAYERS[0], points: 820 }] } }] },
+  { key: 'boom', label: 'Boom', only: 'host', msgs: [question, { type: 'boom', player: PLAYERS[1] }] },
+]);
+
 /** Each screen is the messages the server would have sent to get there. @type {{ key: string, label: string, only?: 'host' | 'player', msgs: ServerMsg[] }[]} */
 const SCREENS = [
   { key: 'setup', label: 'Setup', only: 'host', msgs: [{ type: 'setup', settings, options, types: [...types], players: 4 }] },
@@ -109,6 +138,7 @@ const SCREENS = [
   { key: 'reveal_wrong', label: 'Reveal ✗', only: 'player', msgs: [question, { ...reveal, you: { answered: true, correct: false, delta: 0, score: 2830, rank: 3, streak: 0 } }] },
   { key: 'reveal_slow', label: 'Reveal ⏱', only: 'player', msgs: [question, { ...reveal, you: { answered: false, correct: false, delta: 0, score: 2830, rank: 3, streak: 0 } }] },
   ...KIND_SCREENS,
+  ...POWER_SCREENS,
   { key: 'round_end', label: 'Round end', msgs: [{ type: 'round_end', ...rnd, scores }] },
   { key: 'final', label: 'Final', msgs: [{ type: 'scores', scores, final: true, questions: 15, awards: [
     { key: 'speed_demon', icon: '⚡', title: 'Speed demon', text: 'Ania answered in 1.2 s. Did she even read it?', player: PLAYERS[0] },

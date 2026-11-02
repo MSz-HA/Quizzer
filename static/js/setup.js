@@ -21,8 +21,9 @@ export function estimate(st) {
   const types = st.types.slice(0, st.rounds);
   /** Reading + answer time + reveal per question; a sprint is one 60 s set @param {string} k */
   const play = k => isSprint(k) ? 75 : st.per_round * (st.read_seconds + (k === 'truefalse' ? Math.max(5, st.question_seconds / 2) : k === 'draw' ? Math.max(60, st.question_seconds) : st.question_seconds) + st.reveal_seconds + 4);
-  // Rough upper bound: suggestions + tidying once, vote + generation per round, playing the round, standings between rounds
-  const minutes = Math.ceil((st.suggest_seconds + 10 + st.rounds * (st.category_seconds + 20) + types.reduce((a, k) => a + play(k), 0) + (st.rounds - 1) * 8) / 60);
+  // Rough upper bound: suggestions + tidying once, vote + generation per round (picking power-ups mostly overlaps it),
+  // playing the round, standings between rounds
+  const minutes = Math.ceil((st.suggest_seconds + 10 + st.rounds * (st.category_seconds + 20 + (st.powerups ? 10 : 0)) + types.reduce((a, k) => a + play(k), 0) + (st.rounds - 1) * 8) / 60);
   return { total: st.rounds * st.per_round, minutes };
 }
 
@@ -42,7 +43,7 @@ export function settingsRows(m) {
     <b class="sval">${easyHard(st[key])}</b></div></label>`;
   /** @param {OptionKey} key @param {(v: number) => string} fmt */
   const nums = (key, fmt) => o[key].map(v => ({ v: String(v), label: fmt(v), on: v === st[key] }));
-  /** @param {'avatars' | 'adult'} key @param {string} label */
+  /** @param {'avatars' | 'adult' | 'powerups'} key @param {string} label */
   const onOff = (key, label) => row(key, label, [{ v: 'true', label: t('on'), on: st[key] }, { v: 'false', label: t('off'), on: !st[key] }]);
   return `${row('rounds', t('s_rounds'), nums('rounds', String))}
     ${row('per_round', t('s_per_round'), nums('per_round', String))}
@@ -54,6 +55,7 @@ export function settingsRows(m) {
     ${row('read_seconds', t('s_read_time'), nums('read_seconds', secs))}
     ${row('reveal_seconds', t('s_reveal_time'), nums('reveal_seconds', secs))}
     ${onOff('avatars', t('s_avatars'))}
+    ${onOff('powerups', t('s_powerups'))}
     ${onOff('adult', t('s_adult'))}
     <button class="adv" data-action="advanced" aria-expanded="${advanced}">${t('s_advanced')}<svg width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6,9 12,15 18,9"/></svg></button>
     <div class="advanced"${advanced ? '' : ' hidden'}>
@@ -63,7 +65,7 @@ export function settingsRows(m) {
 
 /** @param {string | undefined} k @param {string | undefined} v */
 function setSetting(k, v) {
-  if (k === 'avatars' || k === 'adult') send({ type: 'settings', settings: { [k]: v === 'true' } });
+  if (k === 'avatars' || k === 'adult' || k === 'powerups') send({ type: 'settings', settings: { [k]: v === 'true' } });
   else if (k?.startsWith('type') && last) {
     const types = [...last.settings.types];
     types[Number(k.slice(4))] = /** @type {Settings['types'][number]} */ (v);

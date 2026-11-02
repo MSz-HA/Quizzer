@@ -1,6 +1,7 @@
 // @ts-check
 // Phone controller: join, suggest a category, vote, answer, see the result
-import { $, esc, t, num, loadInfo, shape, tone, avatar, suggestedBy, fitTag, startTimer, stopTimer, paintTimer, send, connect, fsSupported, isFullscreen, goFullscreen, isSprint, roundSize, INK, paintPoints, paintStrokes } from './common.js';
+import { $, esc, t, num, loadInfo, shape, tone, avatar, suggestedBy, fitTag, startTimer, stopTimer, paintTimer, send, connect, fsSupported, isFullscreen, goFullscreen, isSprint, roundSize, INK, paintPoints, paintStrokes, POWER_ICON, powerLabel, cardKind } from './common.js';
+import { setEffects, startEffects, stopEffects, burst, mask, wiped } from './powers.js';
 
 /** @typedef {import('./types').ServerMsg} ServerMsg */
 /** @typedef {import('./types').QuestionMsg} QuestionMsg */
@@ -13,6 +14,8 @@ import { $, esc, t, num, loadInfo, shape, tone, avatar, suggestedBy, fitTag, sta
 /** @typedef {import('./types').CompareItem} CompareItem */
 /** @typedef {import('./types').AboutMsg} AboutMsg */
 /** @typedef {import('./types').Stroke} Stroke */
+/** @typedef {import('./types').PowersMsg} PowersMsg */
+/** @typedef {import('./types').PowerRow} PowerRow */
 
 const app = /** @type {HTMLElement} */ ($('app'));
 const fs = /** @type {HTMLElement} */ ($('fs'));
@@ -296,6 +299,62 @@ function answerMine(b) {
   aboutScreen();
 }
 
+// ---- Power-ups: pick one of 2 cards, then who gets it (not for double) ----
+/** The cards dealt this round, the one picked (-1: none yet), and whether it was played @type {{ m: PowersMsg | null, card: number, done: number }} */
+let deal = { m: null, card: -1, done: 0 };
+const selfCard = (/** @type {import('./types').Card} */ card) => card.length === 1 && card[0] === 'double';
+/** A card: its tag, then each power's icon, name and what it does. Small: just icons and names, in one line
+ * @param {import('./types').Card} card @param {string} attrs extra attributes, making it a button when set */
+function cardHTML(card, attrs = '', small = false) {
+  const kind = cardKind(card), tag = `<span class="ptag">${t('tag_' + kind)}</span>`;
+  const body = small ? `<b>${card.map(p => powerLabel(p)).join(' + ')}</b>`
+    : card.map(p => `<span class="pw"><i>${POWER_ICON[p]}</i><b>${t('pw_' + p)}</b><small>${t('pd_' + p)}</small></span>`).join('');
+  const cls = `pcard pk-${kind}${small ? ' small' : ''}`;
+  return attrs ? `<button class="${cls}" ${attrs}>${tag}${body}${small ? '<span class="px">✕</span>' : ''}</button>` : `<div class="${cls}">${tag}${body}</div>`;
+}
+function powersScreen() {
+  const m = deal.m;
+  if (!m) return;
+  if (deal.done) {
+    const to = deal.done > 0 ? m.targets[deal.done - 1] : null;
+    return show(`${hdr(t('pick_power'), roundLabel(m))}<div class="center mid"><h1 class="title pop">${t('power_sent')}</h1>
+      ${cardHTML(m.cards[deal.card], '', true)}
+      ${to ? `<div class="psent pop"><span class="arrow">↓</span>${avatar(to, 96)}<b>${esc(to.name)}</b></div>` : `<p class="muted">${t('power_self')}</p>`}
+      <p class="muted" style="font-size:18px">${t('wait_others')}</p></div>`, { plain: true });
+  }
+  if (deal.card < 0) {
+    return show(`${hdr(t('pick_power'), roundLabel(m))}
+      <div class="pcards">${m.cards.map((c, i) => cardHTML(c, `data-action="card" data-i="${i}"`)).join('')}</div>`, { plain: true });
+  }
+  const card = m.cards[deal.card];
+  show(`${hdr(t(card[0] === 'bet' ? 'pick_target_bet' : 'pick_target'), roundLabel(m))}
+    ${cardHTML(card, `data-action="uncard" aria-label="${t('back')}"`, true)}
+    <div class="ptargets">${m.targets.map((p, i) => `<button class="ptarget" data-action="target" data-i="${i}">${avatar(p, 72)}<span>${esc(p.name)}</span></button>`).join('')}</div>`, { plain: true });
+}
+/** @param {number} i card */
+function pickCard(i) {
+  if (!deal.m || deal.done) return;
+  deal.card = i;
+  if (selfCard(deal.m.cards[i])) playCard(-1);
+  else powersScreen();
+}
+/** @param {number} k target index, -1 for double */
+function playCard(k) {
+  if (!deal.m || deal.card < 0 || deal.done) return;
+  send({ type: 'power', card: deal.card, target: k });
+  deal.done = k + 1 || -1;
+  powersScreen();
+}
+/** The power-ups on you this round, for the round's intro screen @param {PowerRow[] | undefined} rows */
+function onYou(rows) {
+  if (!rows) return '';
+  const got = rows.find(r => r.player.name === me.name)?.got || [];
+  const lines = got.map(g => g.power === 'double' ? `${powerLabel('double')}: ${t('your_double')}`
+    : g.power === 'bet' ? `${POWER_ICON.bet} ${t('bets_on_you', { name: esc(g.from?.name || '') })}`
+    : t('got_from', { power: powerLabel(g.power), name: esc(g.from?.name || '') }));
+  return `<div class="onyou"><b>${t('on_you')}</b>${lines.length ? lines.map(l => `<span>${l}</span>`).join('') : `<span>${t('nothing_on_you')}</span>`}</div>`;
+}
+
 /** @param {QuestionMsg} m */
 function questionScreen(m) {
   answersAt = performance.now() + m.lock * 1000;
@@ -312,10 +371,12 @@ function questionScreen(m) {
   else if (m.kind === 'order') orderScreen(m);
   else if (isSprint(m.kind)) sprintScreen(m);
   else show(`${hdr(qNum(m), m.subject ? esc(m.subject.name) : roundLabel(m) || t('look_tv'))}
-    <div class="opts${m.options.length === 2 ? ' two' : ''}${lock(m)}">${m.options.map((o, i) => `<button class="ans a${tone(m.kind, i)}" data-action="answer" data-i="${i}">${shape(tone(m.kind, i), 34)}<span>${esc(o)}</span></button>`).join('')}</div>`, { plain: true });
+    <div class="opts${m.options.length === 2 ? ' two' : ''}${lock(m)}">${m.options.map((o, i) => `<button class="ans a${tone(m.kind, i)}" data-action="answer" data-i="${i}">${shape(tone(m.kind, i), 34)}<span class="fxt">${mask(o)}</span></button>`).join('')}</div>`, { plain: true });
+  if (m.subject?.name !== me.name) startEffects(answersAt, m.seconds);
 }
 /** @param {QuestionMsg} q @param {string} answer what was picked, already escaped @param {number} [i] colour and shape of a picked option */
 function lockedIn(q, answer, i) {
+  stopEffects();
   show(`${hdr(qNum(q))}
     <div class="center mid">
       ${i === undefined ? '' : `<div class="tile a${i} pop">${shape(i, 110)}</div>`}
@@ -352,7 +413,7 @@ function orderScreen(m) {
     <p class="hint">${t('tap_order')}</p>
     <div class="opts${lock(m)}">${m.options.map((o, i) => {
       const pos = ordered.indexOf(i);
-      return `<button class="ans a${i}${pos < 0 ? '' : ' on'}" data-action="order" data-i="${i}">${pos < 0 ? shape(i, 34) : `<b class="pos">${pos + 1}</b>`}<span>${esc(o)}</span></button>`;
+      return `<button class="ans a${i}${pos < 0 ? '' : ' on'}" data-action="order" data-i="${i}">${pos < 0 ? shape(i, 34) : `<b class="pos">${pos + 1}</b>`}<span class="fxt">${mask(o)}</span></button>`;
     }).join('')}</div>
     <button class="btn" data-action="send_order"${ordered.length < 4 ? ' disabled' : ''}>${t('send')}</button>`, { plain: true });
 }
@@ -370,6 +431,7 @@ function tapOrder(i) {
  * (with its value once known) against the next item. @param {QuestionMsg} m @param {{ b: number, ok: boolean } | null} [fb] feedback on the last pick */
 function sprintScreen(m, fb = null) {
   const key = m.key || [], n = key.length;
+  if (run.k >= n) stopEffects();
   if (run.k >= n) return show(`${hdr(qNum(m))}<div class="center mid"><h1 class="title pop">${t('all_done')}</h1>
     <div class="delta">${t('n_right', { n: run.right, total: n })}</div><p class="muted" style="font-size:18px">${t('wait_others')}</p></div>`, { plain: true });
   const i = run.seq[run.k], top = hdr(`${run.k + 1} / ${n}`, `✓ ${run.right}`);
@@ -377,7 +439,7 @@ function sprintScreen(m, fb = null) {
   if (m.kind === 'sort') {
     const item = /** @type {SortItem} */ ((m.items || [])[i]), buckets = m.buckets || [];
     return show(`${top}<p class="hint">${esc(m.text)}</p>
-      <div class="item${fb ? (fb.ok ? ' ok' : ' bad') : ''}">${mark}<span>${esc(item.text)}</span></div>
+      <div class="item${fb ? (fb.ok ? ' ok' : ' bad') : ''}">${mark}<span class="fxt">${mask(item.text)}</span></div>
       <div class="bkts${lock(m)}">${buckets.map((b, k) => `<button class="ans a${k ? 3 : 0}${fb && k !== item.bucket ? ' dim' : ''}" data-action="pick" data-b="${k}"><span>${esc(b)}</span></button>`).join('')}</div>`, { plain: true });
   }
   // Compare: pair i is the winner of pairs 0..i-1 against item i + 1
@@ -389,9 +451,11 @@ function sprintScreen(m, fb = null) {
     <div class="opts two vs${lock(m)}">${pair.map((it, b) => {
       const shown = fb || (b === 0 && i > 0);  // the winner's value is known after the first pick
       const cls = fb ? (b === key[i] ? ' on' : ' dim') : '';
-      return `<button class="ans a${b ? 3 : 0}${cls}" data-action="pick" data-b="${b}"><span>${esc(it.text)}${shown ? `<small>${esc(it.label)}</small>` : ''}</span>${fb && b === fb.b ? mark : ''}</button>`;
+      return `<button class="ans a${b ? 3 : 0}${cls}" data-action="pick" data-b="${b}"><span class="fxt">${mask(it.text)}${shown ? `<small>${esc(it.label)}</small>` : ''}</span>${fb && b === fb.b ? mark : ''}</button>`;
     }).join('')}</div>`, { plain: true });
 }
+/** Sprints: power-up freeze and ink come back every this many picks */
+const BURST = 8;
 /** @param {number} b */
 function pick(b) {
   const m = cur;
@@ -402,7 +466,13 @@ function pick(b) {
   run.busy = true;
   sprintScreen(m, { b, ok });
   // Short flash for sort; compare shows both values a little longer
-  setTimeout(() => { run.busy = false; run.k++; if (cur === m) sprintScreen(m); }, m.kind === 'compare' ? 1100 : 450);
+  setTimeout(() => {
+    run.busy = false;
+    run.k++;
+    if (cur !== m) return;
+    if (run.k % BURST === 0 && run.k < (m.key?.length || 0)) burst();
+    sprintScreen(m);
+  }, m.kind === 'compare' ? 1100 : 450);
 }
 
 /** @param {RevealMsg} m */
@@ -419,6 +489,8 @@ function result(m) {
     slow: '<circle cx="12" cy="12" r="9"/><polyline points="12,7 12,12 15.5,14"/>',
   }[kind];
   const lines = y.delta ? [t('points_delta', { n: num(y.delta) })] : [];
+  if (y.double) lines.push(t('double_pts', { n: num(y.double) }));
+  for (const b of y.bets || []) lines.push(t('bet_pts', { name: esc(b.name), n: num(b.points) }));
   if (m.kind === 'number' && m.answer !== undefined) lines.push(t('answer_was', { a: `${num(m.answer)}${m.unit ? ` ${esc(m.unit)}` : ''}` }));
   else if (!y.correct && !y.spotlight && cur && m.correct !== undefined) lines.push(t('answer_was', { a: esc(cur.options[m.correct]) }));
   const title = y.spotlight ? t(m.kind === 'draw' ? 'guessed_it' : 'known', { n: y.right ?? 0, total: y.of ?? 0 })
@@ -441,6 +513,7 @@ function result(m) {
 /** @param {ServerMsg} m */
 function on(m) {
   localStorage.seen = Date.now();
+  if (m.type !== 'question') stopEffects();
   if (m.type === 'lobby') avatarsOn = m.settings.avatars;
   if (editing && m.type === 'lobby') { lobbyPlayers = m.players; return; }  // don't clobber the form
   if (m.type !== 'joined') editing = false;
@@ -478,15 +551,17 @@ function on(m) {
       break;
     case 'ready':
       stopTimer();
+      setEffects(m.powers, me.name);
       show(`<div class="center mid"><p class="muted" style="font-size:18px">${roundLabel(m)}</p><h1 class="title">${esc(m.category)}</h1>
-        <p class="muted" style="font-size:19px">${roundSize(m)}</p><div class="note">${t('r_' + m.kind)}</div>${holdBtn()}</div>`);
+        <p class="muted" style="font-size:19px">${roundSize(m)}</p><div class="note">${t('r_' + m.kind)}</div>${onYou(m.powers)}${holdBtn()}</div>`);
       break;
+    case 'powers': deal = { m, card: -1, done: 0 }; startTimer(m.seconds); powersScreen(); break;
     case 'about':
       startTimer(m.seconds);
       about = { m, mine: m.asks.flatMap((a, i) => a.subject.name === me.name ? [i] : []), k: 0 };
       aboutScreen();
       break;
-    case 'question': cur = m; startTimer(m.seconds, m.lock); questionScreen(m); break;
+    case 'question': cur = m; setEffects(m.powers, me.name); startTimer(m.seconds, m.lock); questionScreen(m); break;
     case 'reveal': stopTimer(); endStroke(); result(m); break;
     case 'secret': draw.word = m.word; { const el = $('word'); if (el) el.textContent = m.word; } break;
     case 'strokes': if (pad()) { draw.strokes = m.strokes; paintStrokes(pad(), draw.strokes); } break;
@@ -520,11 +595,14 @@ app.addEventListener('click', e => {
         voteScreen(ballot, Number(b.dataset.i));
       }
       break;
-    case 'answer': if (cur && b === pressed) choose(cur, Number(b.dataset.i)); break;
+    case 'answer': if (cur && b === pressed && !wiped()) choose(cur, Number(b.dataset.i)); break;
     case 'guess': guess(); break;
-    case 'order': if (b === pressed) tapOrder(Number(b.dataset.i)); break;
+    case 'order': if (b === pressed && !wiped()) tapOrder(Number(b.dataset.i)); break;
     case 'send_order': if (cur && ordered.length === 4) { send({ type: 'answer', order: ordered, t: took() }); lockedIn(cur, ordered.map(i => esc(cur?.options[i])).join(' → ')); } break;
-    case 'pick': if (b === pressed) pick(Number(b.dataset.b)); break;
+    case 'pick': if (b === pressed && !wiped()) pick(Number(b.dataset.b)); break;
+    case 'card': pickCard(Number(b.dataset.i)); break;
+    case 'uncard': if (!deal.done) { deal.card = -1; powersScreen(); } break;
+    case 'target': playCard(Number(b.dataset.i)); break;
     case 'mine': if (b === pressed) answerMine(Number(b.dataset.b)); break;
     case 'ink':
       draw.ink = Number(b.dataset.i);

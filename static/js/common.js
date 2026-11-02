@@ -66,6 +66,16 @@ const STRINGS = {
     spotlight: "It's about you!", spotlight_sub: 'The others are guessing your answer', known: '{n} of {total} knew you',
     k_draw: 'Pictionary', r_draw: 'One of you draws a secret word on their phone, the rest guess it on theirs. Watch the TV!',
     you_draw: 'Draw this', drawing_tv: '{name} is drawing', guessed_it: '{n} of {total} guessed it', undo: 'Undo', clear: 'Clear',
+    s_powerups: 'Power-ups', pw_freeze: 'Freeze', pw_gloop: 'Gloop', pw_dziobaki: 'Letter thief', pw_spin: 'Spin', pw_bombs: 'Bombs',
+    pw_double: 'Double', pw_bet: 'Bet',
+    pd_freeze: 'Their answers freeze for 3 s on every question', pd_gloop: 'Ink stains over their answers, to wipe away',
+    pd_dziobaki: 'Letters vanish from their answers', pd_spin: 'Their answers turn upside down', pd_bombs: 'Bombs float over their answers. Touch one and boom!',
+    pd_double: 'Your next answer scores double', pd_bet: 'On their next answer you get the same points as them',
+    pick_power: 'Pick a power-up', pick_target: 'Who gets it?', back: 'Back', power_sent: 'Played!', power_self: 'Yours this round',
+    tag_attack: 'Attack', tag_boost: 'Boost', tag_combo: 'Combo', pick_target_bet: 'Bet on whom?',
+    dealing_tv: 'Pick your power-ups on your phone', on_you: 'On you this round', nothing_on_you: 'Nothing on you. Lucky!',
+    got_from: '{power} from {name}', bets_on_you: '{name} bets on you', your_double: 'Your next answer scores double',
+    double_pts: '🪩 Double: +{n}', bet_pts: '🎲 Bet on {name}: +{n}', boom_tv: '{name} stepped on a bomb!', wipe: 'Swipe to wipe the ink',
   },
   pl: {
     connecting: 'Łączenie…', reconnecting: 'Ponowne łączenie…', fullscreen: 'Pełny ekran',
@@ -120,6 +130,16 @@ const STRINGS = {
     spotlight: 'To pytanie o ciebie!', spotlight_sub: 'Pozostali zgadują twoją odpowiedź', known: 'Znają cię: {n} z {total}',
     k_draw: 'Kalambury rysunkowe', r_draw: 'Jedna osoba rysuje na telefonie tajne hasło, reszta zgaduje na swoich. Patrzcie na telewizor!',
     you_draw: 'Narysuj', drawing_tv: '{name} rysuje', guessed_it: 'Odgadło: {n} z {total}', undo: 'Cofnij', clear: 'Wyczyść',
+    s_powerups: 'Power-upy', pw_freeze: 'Zamrożenie', pw_gloop: 'Kleks', pw_dziobaki: 'Dziobaki', pw_spin: 'Fikołek', pw_bombs: 'Bomby',
+    pw_double: 'Podwójne punkty', pw_bet: 'Zakład',
+    pd_freeze: 'Odpowiedzi zamarzają na 3 s przy każdym pytaniu', pd_gloop: 'Plamy atramentu na odpowiedziach, do starcia palcem',
+    pd_dziobaki: 'Z odpowiedzi znikają litery', pd_spin: 'Odpowiedzi stają na głowie', pd_bombs: 'Nad odpowiedziami latają bomby. Dotknij i bum!',
+    pd_double: 'Następna odpowiedź liczy się podwójnie', pd_bet: 'Przy następnej odpowiedzi tej osoby dostajesz tyle samo punktów',
+    pick_power: 'Wybierz power-up', pick_target: 'Komu?', back: 'Wróć', power_sent: 'Zagrane!', power_self: 'Twoje w tej rundzie',
+    tag_attack: 'Atak', tag_boost: 'Bonus', tag_combo: 'Combo', pick_target_bet: 'Na kogo stawiasz?',
+    dealing_tv: 'Wybierzcie power-upy na telefonach', on_you: 'Na ciebie w tej rundzie', nothing_on_you: 'Nic na ciebie. Ale fart!',
+    got_from: '{power} od: {name}', bets_on_you: '{name} stawia na ciebie', your_double: 'Następna odpowiedź liczy się podwójnie',
+    double_pts: '🪩 Podwójne: +{n}', bet_pts: '🎲 Zakład na {name}: +{n}', boom_tv: '{name} wchodzi na bombę!', wipe: 'Przetrzyj palcem, żeby zmyć atrament',
   },
 };
 /** @type {'en' | 'pl'} */
@@ -137,6 +157,15 @@ export const num = n => n.toLocaleString(LANG === 'pl' ? 'pl-PL' : 'en-US');
 export const isSprint = kind => kind === 'sort' || kind === 'compare';
 /** "Odd one out · 5 questions" (no count for sprints, which are one set) @param {{ kind: string, total: number }} m */
 export const roundSize = m => `${t('k_' + m.kind)}${isSprint(m.kind) ? '' : ` · ${t('n_questions', { n: m.total })}`}`;
+
+// ---- Power-ups (see POWERS in main.py) ----
+/** @type {Record<import('./types').Power, string>} */
+export const POWER_ICON = { freeze: '🧊', gloop: '🖋️', dziobaki: '✂️', spin: '🙃', bombs: '💣', double: '🪩', bet: '🎲' };
+/** Icon and name, e.g. "🧊 Freeze" @param {import('./types').Power} p */
+export const powerLabel = p => `${POWER_ICON[p]} ${t('pw_' + p)}`;
+/** A card's colour and tag: a mixed card is a combo of attacks; double and bet help you, the rest hit someone else
+ * @param {import('./types').Card} card @returns {'combo' | 'boost' | 'attack'} */
+export const cardKind = card => card.length > 1 ? 'combo' : card[0] === 'double' || card[0] === 'bet' ? 'boost' : 'attack';
 
 // ---- Draw rounds: strokes with x, y in 0..1 on a 4:3 canvas, painted at any size ----
 /** @typedef {import('./types').Stroke} Stroke */

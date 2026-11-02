@@ -124,3 +124,71 @@ input:focus{border-color:var(--gold)}
 .inkbtn{width:44px;height:44px;border-radius:50%;border:3px solid transparent;box-shadow:0 0 0 2px rgba(255,255,255,.25);flex-shrink:0;touch-action:manipulation}
 .inkbtn.on{border-color:var(--fg);transform:scale(1.12)}
 .tools .tool{flex:1;width:auto;height:48px;font-size:26px;padding:0;touch-action:manipulation}
+
+/* Power-ups: picking a card and a target */
+.pcards{flex:1;min-height:0;display:grid;grid-template-rows:repeat(2,minmax(0,1fr));gap:22px;padding-bottom:8px}
+@media (orientation:landscape){.pcards{grid-template-rows:minmax(0,1fr);grid-template-columns:repeat(2,minmax(0,1fr))}}
+.pcard{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:34px 20px 18px;border-radius:24px;
+  text-align:center;background:var(--c);color:var(--t);box-shadow:0 8px 0 var(--e);overflow:hidden;touch-action:manipulation;transition:transform .08s,box-shadow .08s}
+button.pcard:active{transform:translateY(5px);box-shadow:0 3px 0 var(--e)}
+.ptag{position:absolute;top:12px;left:14px;font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  background:rgba(0,0,0,.25);border-radius:999px;padding:2px 12px}
+.pk-combo .ptag{background:var(--gold);color:var(--on-gold)}
+.pw{display:flex;flex-direction:column;align-items:center;gap:2px}
+.pw i{font-style:normal;font-size:min(64px,9dvh);line-height:1.1}
+.pw b{font-size:clamp(24px,7vw,34px);line-height:1.1}
+.pw small{font-size:17px;line-height:1.25;opacity:.85;max-width:300px}
+/* A combo has two powers in the same space: icon beside the text */
+.pk-combo:not(.small) .pw{display:grid;grid-template-columns:auto 1fr;column-gap:14px;text-align:left;width:100%;max-width:340px}
+.pk-combo:not(.small) .pw i{grid-row:span 2;font-size:min(48px,7dvh);align-self:center}
+.pk-combo:not(.small) .pw b{font-size:clamp(22px,6vw,28px)}
+.pk-combo:not(.small) .pw small{font-size:15px}
+.pk-combo:not(.small) .pw+.pw{border-top:2px dashed rgba(255,255,255,.3);padding-top:10px}
+/* Small: the picked card, one line */
+.pcard.small{flex-direction:row;flex-shrink:0;width:100%;padding:12px 18px;gap:12px;box-shadow:0 5px 0 var(--e)}
+.pcard.small .ptag{position:static}
+.pcard.small b{font-size:22px;line-height:1.15;text-align:left;flex:1}
+.pcard.small .px{font-size:20px;opacity:.8}
+.ptargets{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));grid-auto-rows:minmax(140px,min(190px,26dvh));align-content:start;gap:16px;padding:4px 0 10px}
+.ptarget{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:14px 10px;border-radius:24px;background:var(--card);color:var(--fg);
+  font-size:24px;font-weight:600;line-height:1.1;box-shadow:0 6px 0 var(--card-edge);touch-action:manipulation;transition:transform .08s,box-shadow .08s}
+.ptarget span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ptarget:active{transform:translateY(4px);box-shadow:0 2px 0 var(--card-edge)}
+.psent{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:26px}
+.psent .arrow{font-size:40px;line-height:1;font-weight:700;color:var(--muted);animation:nudge 1s ease-in-out infinite}
+@keyframes nudge{50%{transform:translateY(6px)}}
+.onyou{display:flex;flex-direction:column;gap:4px;background:rgba(255,200,61,.12);border:2px solid var(--gold);border-radius:16px;padding:10px 16px;font-size:17px;line-height:1.3}
+.onyou b{color:var(--gold)}
+
+/* Power-up attacks during a question (powers.js): layers over the page */
+#fx{position:fixed;inset:0;pointer-events:none;z-index:20}
+#fx canvas{position:absolute;inset:0;width:100%;height:100%}
+body.gloop #app, body.gloop #app *{touch-action:none}
+.bomb{position:absolute;z-index:2;left:0;top:0;line-height:1;pointer-events:auto;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;
+  filter:drop-shadow(0 4px 6px rgba(0,0,0,.5));animation:tick .5s ease-in-out infinite alternate}
+@keyframes tick{to{filter:drop-shadow(0 0 12px #FF6A3D)}}
+/* Freeze: each answer turns to plain ice blue (its colour gone) under frost that cracks (powers.js) and then shatters;
+   only then do the answers get their colours back and take taps */
+body.frozen .ans{--c:#A8D4F2;--e:#5E8FB8;--t:#2D5577;position:relative;pointer-events:none}
+.ice{position:absolute;z-index:1;pointer-events:none;overflow:hidden;
+  background:repeating-linear-gradient(115deg,transparent 0 30px,rgba(255,255,255,.4) 31px 33px,transparent 34px 70px),
+    radial-gradient(ellipse at 30% 20%,rgba(255,255,255,.75),rgba(225,242,255,.55) 60%,rgba(200,230,252,.6));
+  box-shadow:inset 0 0 0 3px rgba(255,255,255,.8),inset 0 0 28px rgba(255,255,255,.8);-webkit-backdrop-filter:blur(1.5px);backdrop-filter:blur(1.5px)}
+.ice svg{position:absolute;inset:0;width:100%;height:100%;filter:drop-shadow(0 0 1.5px #2D5577)}
+.ice line,.ice path{fill:none;stroke:#fff;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;opacity:0}
+.ice .on{opacity:1}
+.ice.shatter{animation:shatter .3s ease-in forwards}
+@keyframes shatter{to{opacity:0;transform:scale(1.15) rotate(2deg);filter:blur(2px)}}
+/* Bomb touched: the screen blows up and stays blocked */
+.boom{position:absolute;z-index:3;inset:0;pointer-events:auto;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle,#FFF4C2 0%,#FFB23D 25%,#E2401C 55%,#3A0B05 100%);animation:boom ease-out both}
+.boom span{font-size:45vmin;animation:shake .12s linear infinite}
+@keyframes boom{from{opacity:1}75%{opacity:1}to{opacity:0}}
+@keyframes shake{25%{transform:translate(-8px,6px) rotate(-4deg)}75%{transform:translate(8px,-6px) rotate(4deg)}}
+/* Spin: answer texts upside down; at 2 stacks swaying and flipping, from 3 spinning */
+body[data-spin="1"] .fxt,body[data-spin="2"] .fxt,body[data-spin="3"] .fxt{display:inline-block;transform:rotate(180deg)}
+body[data-spin="2"] .fxt{animation:sway 1.4s ease-in-out infinite alternate}
+body[data-spin="3"] .fxt{animation:spin 3.5s linear infinite}
+@keyframes sway{from{transform:rotate(150deg)}to{transform:rotate(210deg) scaleX(-1)}}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.bomb,.boom span{animation:none}body[data-spin] .fxt{animation:none}.psent .arrow,.ice.shatter{animation:none}}

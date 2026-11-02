@@ -5,7 +5,6 @@ A place to collect ideas for improving the game. Nothing here is committed to. I
 ### Gameplay
 - **Final round with a twist:** e.g. last 3 questions worth double, or a race-to-the-finish line where correct answers move you forward.
 - **Difficulty ramp:** ask Claude for easy questions first and harder ones later, instead of a random mix.
-- **More end-of-game awards** once power-ups exist: most attacks sent, most attacks received, most times frozen, revenge attacks.
 - **Comeback help** for the last-place player (e.g. a free power-up), so nobody drops out mentally.
 - **Team mode:** 2–4 teams, score is the team average.
 

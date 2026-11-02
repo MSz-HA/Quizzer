@@ -50,18 +50,26 @@ Each feature has an on/off switch (`.env` flag with a lobby toggle where it make
 - TV: small sound files in `static/sfx/` (tick during the last 5s, reveal, fanfare) with a mute toggle remembered in localStorage. Browsers block sound until the first click, so the Start button unlocks audio.
 - Phone: `navigator.vibrate` on lock-in, correct (short) and wrong (double). It's a no-op on iOS.
 
-**D. Power-ups (`FEATURE_POWERUPS`, lobby toggle, biggest change)**
-- Earn one power-up for 2 correct answers in a row, with at most 2 held.
-- Types:
-  - **Freeze:** target's buttons locked for 3s.
-  - **Gloop:** target's answer texts blurred until they tap to wipe.
-  - **Double:** your next correct answer scores ×2.
-- Power-ups are used in a short "attack window" during the reveal, by picking a target on the phone. Effects apply to the next question.
-- Server changes:
-  - `use_power` message, validated in `ws_endpoint`.
-  - `g.players[pid]` gains `powers`, `effects` and `streak`.
-  - The `question` message sent per player includes their active effects, so `bc` needs a per-player variant like `reveal()` already does.
-- TV shows "Ania froze Kamil!" banners.
+**D. Power-ups (setup screen toggle, on by default) — done, not yet tried on real phones**
+- **Dealing:** after each round's category vote, while Claude writes the questions (before the intro screen in Who knows them best), every phone gets 2 cards and plays one, on another player where needed. 20 s to choose; anyone who doesn't gets a random card on a random target. About 15% of cards are mixed: 2 attacks on the same target. The TV shows who has played.
+- **Powers:**
+  - **Attacks** last the whole round and stack:
+    - **Freeze 🧊:** each answer turns to ice blue (its colour gone) for 3 s per stack on every question (at most half the answer time). The text stays faintly readable through the ice, so you can think but not tap; cracks spread through the ice, it shatters, and the colours come back when the answers can be tapped. The ice sits over the ink, and until it shatters the ink can't be wiped and the bombs don't go off.
+    - **Gloop 🖋️:** 3 ink stains per stack, each aimed at a different answer's text; dragging a finger wipes them, and a tap still answers through the ink.
+    - **Dziobaki ✂️ (Letter thief):** 30% of the letters per stack become `_` (at most 85%).
+    - **Spin 🙃:** answers turn upside down; at 2 stacks they sway and flip, from 3 they spin.
+    - **Bombs 💣:** 2 bombs per stack bounce around the screen; touching one (or wiping ink over one) blows the screen up for 2 s, and the TV shows a banner.
+  - In sprints (Sort, Compare) the freeze and ink come back every 8 picks.
+  - **Double 🪩:** your next answer this round scores double.
+  - **Bet 🎲:** on the target's next answer this round you also get the points they get, before their own double.
+- **Which round types:** only the fitting powers are dealt. All of them in Classic, Odd one out, Order, Sort, Compare and Who knows them best (while guessing, never while in the spotlight). True/false gets Freeze, Bombs, Double and Bet (its tiles always say the same thing). Number gets only Double and Bet (no speed scoring, nothing to hide). Pictionary gets none.
+- **Intro screen:** the round's intro screen lists every player with what was played on them and by whom; each phone shows what is on it. The phone's result screen shows the Double and Bet bonuses.
+- **Awards:** public enemy no. 1 (attacked most), troublemaker (attacked most), revenge, minesweeper champion / *saper myli się raz* (most bombs), unbreakable (right answers while hit by 2+ attacks), insider trader (most points from bets), lost the shirt (bet on someone who scored nothing), crowd favourite (most bets on them), double or nothing, backfire (attacked someone who still outscored them that round).
+- **Code:**
+  - Server: `deal_powers()`, `boost()` and `power_facts()` in `main.py`.
+  - Phone effects: `static/js/powers.js` (layers in `#fx`).
+  - Dev bar: previews of each effect.
+- **To try on real phones:** wiping ink without scrolling (iOS Safari), whether the bombs are too easy or too hard to avoid, and how readable spin and the letter thief are at 2–3 stacks.
 
 **E. End-of-game awards — done**
 - `reveal()` adds one record per question to `g.log` (who answered, right or wrong, how fast, ranking afterwards). `award_facts()` in `main.py` turns the log into the awards that apply. `pick_awards()` takes up to 5 of them, spread over as many players as possible.
