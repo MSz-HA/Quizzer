@@ -70,27 +70,27 @@ const saturn = [
   { c: 1, p: Array.from({ length: 41 }, (_, i) => /** @type {[number, number]} */ ([.5 + .34 * Math.cos(i / 40 * 2 * Math.PI), .52 + .08 * Math.sin(i / 40 * 2 * Math.PI)])) },
 ];
 const KIND_SCREENS = /** @type {{ key: string, label: string, only?: 'host' | 'player', msgs: ServerMsg[] }[]} */ ([
-  { key: 'about', label: 'About me', msgs: [aboutMsg, { type: 'answered', players: PLAYERS.map((p, i) => ({ ...p, done: i % 2 === 0 })) }] },
-  { key: 'q_about', label: 'Q About', msgs: [qAbout, { type: 'answered', players: PLAYERS.slice(1).map((p, i) => ({ ...p, done: i < 1 })) }] },
-  { key: 'q_about_me', label: 'Q About me', only: 'player', msgs: [{ ...qAbout, subject: PLAYERS[1] }] },
-  { key: 'r_about', label: 'R About', msgs: [qAbout, { type: 'reveal', kind: 'about', correct: 1, counts: [1, 2, 0, 0], explanation: '', scores, you: { ...you, correct: true, delta: 870 } }] },
-  { key: 'q_draw', label: 'Q Draw', msgs: [qDraw, { type: 'strokes', strokes: saturn }, { type: 'answered', players: PLAYERS.slice(1).map((p, i) => ({ ...p, done: i < 1 })) }] },
-  { key: 'q_draw_me', label: 'Q Draw me', only: 'player', msgs: [{ ...qDraw, subject: PLAYERS[1] }, { type: 'secret', word: 'Saturn' }, { type: 'strokes', strokes: saturn }] },
-  { key: 'r_draw', label: 'R Draw', msgs: [qDraw, { type: 'reveal', kind: 'draw', correct: 1, counts: [1, 2, 0, 0], strokes: saturn, wait: 3,
+  { key: 'about', label: 'Who knows them best: answering about yourself', msgs: [aboutMsg, { type: 'answered', players: PLAYERS.map((p, i) => ({ ...p, done: i % 2 === 0 })) }] },
+  { key: 'q_about', label: 'Who knows them best: question', msgs: [qAbout, { type: 'answered', players: PLAYERS.slice(1).map((p, i) => ({ ...p, done: i < 1 })) }] },
+  { key: 'q_about_me', label: 'Who knows them best: question about you', only: 'player', msgs: [{ ...qAbout, subject: PLAYERS[1] }] },
+  { key: 'r_about', label: 'Who knows them best: answer', msgs: [qAbout, { type: 'reveal', kind: 'about', correct: 1, counts: [1, 2, 0, 0], explanation: '', scores, you: { ...you, correct: true, delta: 870 } }] },
+  { key: 'q_draw', label: 'Pictionary: guessing', msgs: [qDraw, { type: 'strokes', strokes: saturn }, { type: 'answered', players: PLAYERS.slice(1).map((p, i) => ({ ...p, done: i < 1 })) }] },
+  { key: 'q_draw_me', label: 'Pictionary: drawing', only: 'player', msgs: [{ ...qDraw, subject: PLAYERS[1] }, { type: 'secret', word: 'Saturn' }, { type: 'strokes', strokes: saturn }] },
+  { key: 'r_draw', label: 'Pictionary: answer', msgs: [qDraw, { type: 'reveal', kind: 'draw', correct: 1, counts: [1, 2, 0, 0], strokes: saturn, wait: 3,
     explanation: "Saturn's rings are only tens of metres thick.", scores, you: { ...you, correct: true, delta: 910 } }] },
-  { key: 'r_about_me', label: 'R About me', only: 'player', msgs: [{ ...qAbout, subject: PLAYERS[1] }, { type: 'reveal', kind: 'about', correct: 1, counts: [1, 2, 0, 0], explanation: '', scores,
+  { key: 'r_about_me', label: 'Who knows them best: answer about you', only: 'player', msgs: [{ ...qAbout, subject: PLAYERS[1] }, { type: 'reveal', kind: 'about', correct: 1, counts: [1, 2, 0, 0], explanation: '', scores,
     you: { ...you, answered: false, delta: 666, spotlight: true, right: 2, of: 3 } }] },
-  { key: 'q_tf', label: 'Q T/F', msgs: [qTf] },
-  { key: 'r_tf', label: 'R T/F', msgs: [qTf, { type: 'reveal', kind: 'truefalse', correct: 0, explanation: 'A day on Venus is longer than its year, too.', counts: [3, 1], scores, you: { ...you, correct: true, delta: 910 } }] },
-  { key: 'q_number', label: 'Q 123', msgs: [qNumber] },
-  { key: 'r_number', label: 'R 123', msgs: [qNumber, { type: 'reveal', kind: 'number', answer: 8849, unit: 'm', explanation: 'Measured again in 2020.', scores, you: { ...you, value: 8000 },
+  { key: 'q_tf', label: 'True/false: question', msgs: [qTf] },
+  { key: 'r_tf', label: 'True/false: answer', msgs: [qTf, { type: 'reveal', kind: 'truefalse', correct: 0, explanation: 'A day on Venus is longer than its year, too.', counts: [3, 1], scores, you: { ...you, correct: true, delta: 910 } }] },
+  { key: 'q_number', label: 'Number: question', msgs: [qNumber] },
+  { key: 'r_number', label: 'Number: answer', msgs: [qNumber, { type: 'reveal', kind: 'number', answer: 8849, unit: 'm', explanation: 'Measured again in 2020.', scores, you: { ...you, value: 8000 },
     guesses: PLAYERS.map((p, i) => ({ ...p, value: [8849, 8000, 9500, 5000][i], delta: [1500, 750, 500, 250][i] })) }] },
-  { key: 'q_order', label: 'Q 1234', msgs: [qOrder] },
-  { key: 'r_order', label: 'R 1234', msgs: [qOrder, { type: 'reveal', kind: 'order', order: [1, 0, 3, 2], values: ['108 mln km', '228 mln km', '778 mln km', '4.5 bln km'], placed: [3, 2, 4, 4], explanation: 'Venus is the second planet from the Sun.', scores, you: { ...you, placed: 2 } }] },
-  { key: 'q_sort', label: 'Q Sort', msgs: [qSort, ...progress] },
-  { key: 'r_sort', label: 'R Sort', msgs: [qSort, { type: 'reveal', kind: 'sort', right: [4, 4, 3, 1, 4, 2, 1, 4], players: 4, explanation: 'Gandalf did get films, but he started in a book.', scores, you: { ...you, correct: true, delta: 3800, right: 7, of: 8 } }] },
-  { key: 'q_compare', label: 'Q Cmp', msgs: [qCompare, ...progress] },
-  { key: 'r_compare', label: 'R Cmp', msgs: [qCompare, { type: 'reveal', kind: 'compare', right: [4, 3, 1, 4, 2], players: 4, explanation: 'Psycho is the oldest of them all.', scores, you: { ...you, right: 3, of: 5 } }] },
+  { key: 'q_order', label: 'Order: question', msgs: [qOrder] },
+  { key: 'r_order', label: 'Order: answer', msgs: [qOrder, { type: 'reveal', kind: 'order', order: [1, 0, 3, 2], values: ['108 mln km', '228 mln km', '778 mln km', '4.5 bln km'], placed: [3, 2, 4, 4], explanation: 'Venus is the second planet from the Sun.', scores, you: { ...you, placed: 2 } }] },
+  { key: 'q_sort', label: 'Sort: sprint', msgs: [qSort, ...progress] },
+  { key: 'r_sort', label: 'Sort: results', msgs: [qSort, { type: 'reveal', kind: 'sort', right: [4, 4, 3, 1, 4, 2, 1, 4], players: 4, explanation: 'Gandalf did get films, but he started in a book.', scores, you: { ...you, correct: true, delta: 3800, right: 7, of: 8 } }] },
+  { key: 'q_compare', label: 'Compare: sprint', msgs: [qCompare, ...progress] },
+  { key: 'r_compare', label: 'Compare: results', msgs: [qCompare, { type: 'reveal', kind: 'compare', right: [4, 3, 1, 4, 2], players: 4, explanation: 'Psycho is the oldest of them all.', scores, you: { ...you, right: 3, of: 5 } }] },
 ]);
 
 // Power-ups: the cards, the TV while players pick, the round's summary, each attack on this phone, and the bonuses
@@ -104,54 +104,57 @@ const powerRows = [
 /** A question with `n` stacks of each of `powers` on this phone @param {QuestionMsg} q @param {import('./types').Power[]} powers @param {number} [n] */
 const fxQ = (q, powers, n = 1) => ({ ...q, powers: [{ player: ME, got: powers.flatMap(power => Array(n).fill({ power, from: PLAYERS[0] })) }] });
 const POWER_SCREENS = /** @type {{ key: string, label: string, only?: 'host' | 'player', msgs: ServerMsg[] }[]} */ ([
-  { key: 'powers', label: 'Powers', only: 'player', msgs: [{ type: 'powers', ...rnd, cards: [['bet'], ['freeze', 'gloop']], targets: PLAYERS.filter(p => p !== ME), seconds: 20 }] },
-  { key: 'powers2', label: 'Powers 2', only: 'player', msgs: [{ type: 'powers', ...rnd, cards: [['bombs'], ['double']], targets: [...PLAYERS.filter(p => p !== ME), ...PLAYERS.filter(p => p !== ME)], seconds: 20 }] },
-  { key: 'dealing', label: 'Dealing', only: 'host', msgs: [{ type: 'dealing', ...rnd, seconds: 20, powers: ['freeze', 'gloop', 'dziobaki', 'spin', 'bombs', 'double', 'bet'], players: PLAYERS.map((p, i) => ({ ...p, done: i < 2 })) }] },
-  { key: 'ready_fx', label: 'Ready fx', msgs: [{ type: 'ready', ...rnd, category: cats[0], total: 5, powers: powerRows }] },
-  { key: 'fx_freeze', label: 'Freeze', only: 'player', msgs: [fxQ(question, ['freeze'])] },
-  { key: 'fx_gloop', label: 'Gloop', only: 'player', msgs: [fxQ(question, ['gloop'])] },
-  { key: 'fx_letters', label: 'Dziobaki', only: 'player', msgs: [fxQ(question, ['dziobaki'])] },
-  { key: 'fx_letters3', label: 'Dziobaki×3', only: 'player', msgs: [fxQ(question, ['dziobaki'], 3)] },
-  { key: 'fx_spin', label: 'Spin', only: 'player', msgs: [fxQ(question, ['spin'])] },
-  { key: 'fx_spin3', label: 'Spin×3', only: 'player', msgs: [fxQ(question, ['spin'], 3)] },
-  { key: 'fx_bombs', label: 'Bombs', only: 'player', msgs: [fxQ(question, ['bombs'])] },
-  { key: 'fx_mix', label: 'Fx all', only: 'player', msgs: [fxQ(question, ['freeze', 'gloop', 'dziobaki', 'spin', 'bombs'])] },
-  { key: 'fx_sort', label: 'Fx Sort', only: 'player', msgs: [fxQ(qSort, ['dziobaki', 'bombs', 'gloop'])] },
-  { key: 'fx_order', label: 'Fx 1234', only: 'player', msgs: [fxQ(qOrder, ['spin', 'gloop'])] },
-  { key: 'r_bonus', label: 'R bonus', only: 'player', msgs: [question, { ...reveal, you: { ...reveal.you, delta: 2460, double: 820, bets: [{ ...PLAYERS[0], points: 820 }] } }] },
-  { key: 'boom', label: 'Boom', only: 'host', msgs: [question, { type: 'boom', player: PLAYERS[1] }] },
+  { key: 'powers', label: 'Pick a card: Bet or a combo', only: 'player', msgs: [{ type: 'powers', ...rnd, cards: [['bet'], ['freeze', 'gloop']], targets: PLAYERS.filter(p => p !== ME), seconds: 20 }] },
+  { key: 'powers2', label: 'Pick a card: Bombs or Double, 6 targets', only: 'player', msgs: [{ type: 'powers', ...rnd, cards: [['bombs'], ['double']], targets: [...PLAYERS.filter(p => p !== ME), ...PLAYERS.filter(p => p !== ME)], seconds: 20 }] },
+  { key: 'dealing', label: 'Players picking power-ups', only: 'host', msgs: [{ type: 'dealing', ...rnd, seconds: 20, powers: ['freeze', 'gloop', 'dziobaki', 'spin', 'bombs', 'double', 'bet'], players: PLAYERS.map((p, i) => ({ ...p, done: i < 2 })) }] },
+  { key: 'ready_fx', label: 'Round intro with power-ups played', msgs: [{ type: 'ready', ...rnd, category: cats[0], total: 5, powers: powerRows }] },
+  { key: 'fx_freeze', label: 'Attack: Freeze', only: 'player', msgs: [fxQ(question, ['freeze'])] },
+  { key: 'fx_gloop', label: 'Attack: Gloop', only: 'player', msgs: [fxQ(question, ['gloop'])] },
+  { key: 'fx_gloop3', label: 'Attack: Gloop ×3', only: 'player', msgs: [fxQ(question, ['gloop'], 3)] },
+  { key: 'fx_letters', label: 'Attack: Dziobaki', only: 'player', msgs: [fxQ(question, ['dziobaki'])] },
+  { key: 'fx_letters3', label: 'Attack: Dziobaki ×3', only: 'player', msgs: [fxQ(question, ['dziobaki'], 3)] },
+  { key: 'fx_spin', label: 'Attack: Spin', only: 'player', msgs: [fxQ(question, ['spin'])] },
+  { key: 'fx_spin3', label: 'Attack: Spin ×3', only: 'player', msgs: [fxQ(question, ['spin'], 3)] },
+  { key: 'fx_bombs', label: 'Attack: Bombs', only: 'player', msgs: [fxQ(question, ['bombs'])] },
+  { key: 'fx_bombs3', label: 'Attack: Bombs ×3', only: 'player', msgs: [fxQ(question, ['bombs'], 3)] },
+  { key: 'fx_mix', label: 'Attack: all five at once', only: 'player', msgs: [fxQ(question, ['freeze', 'gloop', 'dziobaki', 'spin', 'bombs'])] },
+  { key: 'fx_sort', label: 'Attack in Sort: Dziobaki, Bombs, Gloop', only: 'player', msgs: [fxQ(qSort, ['dziobaki', 'bombs', 'gloop'])] },
+  { key: 'fx_order', label: 'Attack in Order: Spin, Gloop', only: 'player', msgs: [fxQ(qOrder, ['spin', 'gloop'])] },
+  { key: 'r_bonus', label: 'Answer with Double and Bet points', only: 'player', msgs: [question, { ...reveal, you: { ...reveal.you, delta: 2460, double: 820, bets: [{ ...PLAYERS[0], points: 820 }] } }] },
+  { key: 'boom', label: 'Bomb banner', only: 'host', msgs: [question, { type: 'boom', player: PLAYERS[1] }] },
 ]);
 
-/** Each screen is the messages the server would have sent to get there. @type {{ key: string, label: string, only?: 'host' | 'player', msgs: ServerMsg[] }[]} */
+/** Each screen is the messages the server would have sent to get there, in groups for the dev bar's list (no group: the
+ * game's main flow) @type {{ key: string, label: string, only?: 'host' | 'player', group?: string, msgs: ServerMsg[] }[]} */
 const SCREENS = [
-  { key: 'setup', label: 'Setup', only: 'host', msgs: [{ type: 'setup', settings, options, types: [...types], players: 4 }] },
-  { key: 'lobby', label: 'Lobby', msgs: [{ type: 'lobby', players: PLAYERS, settings }] },
-  { key: 'categories', label: 'Suggest', msgs: [categories, sent] },
-  { key: 'category_ok', label: 'Suggested', only: 'player', msgs: [categories, { type: 'category_ok', text: cats[2] }] },
-  { key: 'preparing', label: 'Preparing', only: 'host', msgs: [categories, sent, { type: 'preparing' }] },
-  { key: 'vote', label: 'Vote', msgs: [{ type: 'vote', ...rnd, options: cats, by, seconds: 15, total: 5, players: 4, best: 0 }, { type: 'votes', voted: 2, players: 4 }] },
-  { key: 'pick', label: 'Pick', msgs: [{ type: 'pick', ...rnd, options: cats, by, counts: [1, 0, 3, 0], chosen: cats[2], total: 5 }] },
-  { key: 'generating', label: 'Generating', msgs: [{ type: 'generating', ...rnd, categories: [cats[0]], total: 5 }, { type: 'progress', done: 1, total: 2 }] },
-  { key: 'ready', label: 'Ready', msgs: [{ type: 'ready', ...rnd, category: cats[0], total: 5 }] },
-  { key: 'question', label: 'Question', msgs: [question, { type: 'answered', players: PLAYERS.map((p, i) => ({ ...p, done: i < 2 })) }] },
-  { key: 'reveal', label: 'Reveal', msgs: [question, reveal] },
-  { key: 'reveal_wrong', label: 'Reveal ✗', only: 'player', msgs: [question, { ...reveal, you: { answered: true, correct: false, delta: 0, score: 2830, rank: 3, streak: 0 } }] },
-  { key: 'reveal_slow', label: 'Reveal ⏱', only: 'player', msgs: [question, { ...reveal, you: { answered: false, correct: false, delta: 0, score: 2830, rank: 3, streak: 0 } }] },
-  ...KIND_SCREENS,
-  ...POWER_SCREENS,
-  { key: 'round_end', label: 'Round end', msgs: [{ type: 'round_end', ...rnd, scores }] },
-  { key: 'final', label: 'Final', msgs: [{ type: 'scores', scores, final: true, questions: 15, awards: [
+  { key: 'setup', label: 'Setup: game settings', only: 'host', msgs: [{ type: 'setup', settings, options, types: [...types], players: 4 }] },
+  { key: 'lobby', label: 'Lobby: players joining', msgs: [{ type: 'lobby', players: PLAYERS, settings }] },
+  { key: 'categories', label: 'Categories: suggest a topic', msgs: [categories, sent] },
+  { key: 'category_ok', label: 'Categories: suggestion sent', only: 'player', msgs: [categories, { type: 'category_ok', text: cats[2] }] },
+  { key: 'preparing', label: 'Categories: preparing the vote', only: 'host', msgs: [categories, sent, { type: 'preparing' }] },
+  { key: 'vote', label: 'Vote: pick a category', msgs: [{ type: 'vote', ...rnd, options: cats, by, seconds: 15, total: 5, players: 4, best: 0 }, { type: 'votes', voted: 2, players: 4 }] },
+  { key: 'pick', label: 'Vote: winning category', msgs: [{ type: 'pick', ...rnd, options: cats, by, counts: [1, 0, 3, 0], chosen: cats[2], total: 5 }] },
+  { key: 'generating', label: 'Generating questions', msgs: [{ type: 'generating', ...rnd, categories: [cats[0]], total: 5 }, { type: 'progress', done: 1, total: 2 }] },
+  { key: 'ready', label: 'Round intro', msgs: [{ type: 'ready', ...rnd, category: cats[0], total: 5 }] },
+  { key: 'question', label: 'Classic: question', msgs: [question, { type: 'answered', players: PLAYERS.map((p, i) => ({ ...p, done: i < 2 })) }] },
+  { key: 'reveal', label: 'Classic: answer, right', msgs: [question, reveal] },
+  { key: 'reveal_wrong', label: 'Classic: answer, wrong', only: 'player', msgs: [question, { ...reveal, you: { answered: true, correct: false, delta: 0, score: 2830, rank: 3, streak: 0 } }] },
+  { key: 'reveal_slow', label: 'Classic: answer, too slow', only: 'player', msgs: [question, { ...reveal, you: { answered: false, correct: false, delta: 0, score: 2830, rank: 3, streak: 0 } }] },
+  { key: 'round_end', label: 'Round end: standings', msgs: [{ type: 'round_end', ...rnd, scores }] },
+  { key: 'final', label: 'Game over: scores and awards', msgs: [{ type: 'scores', scores, final: true, questions: 15, awards: [
     { key: 'speed_demon', icon: '⚡', title: 'Speed demon', text: 'Ania answered in 1.2 s. Did she even read it?', player: PLAYERS[0] },
     { key: 'on_fire', icon: '🔥', title: 'On fire', text: 'Kamil got 5 in a row.', player: PLAYERS[1] },
     { key: 'brain_buster', icon: '🧠', title: 'Brain buster', text: 'Nobody knew who painted the Arnolfini Portrait.', player: null }] }] },
+  ...KIND_SCREENS.map(s => ({ ...s, group: 'Round types' })),
+  ...POWER_SCREENS.map(s => ({ ...s, group: 'Power-ups' })),
   { key: 'error', label: 'Error', msgs: [{ type: 'error', message: 'Claude did not return any usable questions.' }] },
 ];
 
-const CSS = `#devbar{position:fixed;left:8px;right:8px;bottom:8px;z-index:100;display:flex;flex-wrap:wrap;gap:4px;padding:6px;
+const CSS = `#devbar{position:fixed;left:8px;bottom:8px;z-index:100;display:flex;gap:4px;padding:6px;max-width:calc(100vw - 16px);
   background:rgba(0,0,0,.8);border-radius:8px;font:13px/1 system-ui,sans-serif}
-#devbar.min{right:auto}#devbar.min button:not(.tog){display:none}
-#devbar button{background:#333;color:#fff;border:0;border-radius:4px;padding:6px 8px;cursor:pointer;font:inherit}
-#devbar button:hover{background:#555}#devbar button.on{background:#FFC83D;color:#000}#devbar .tog{background:#B42D31}`;
+#devbar.min select{display:none}
+#devbar button{background:#B42D31;color:#fff;border:0;border-radius:4px;padding:6px 8px;cursor:pointer;font:inherit}
+#devbar select{min-width:0;max-width:340px;background:#333;color:#fff;border:0;border-radius:4px;padding:5px 6px;font:inherit;cursor:pointer}`;
 
 /** Screen previewed in this tab, '' when live */
 export const screen = sessionStorage.devScreen || '';
@@ -167,13 +170,16 @@ export function devBar(role, on) {
   const bar = document.createElement('nav');
   bar.id = 'devbar';
   bar.classList.toggle('min', sessionStorage.devMin === '1');
-  bar.innerHTML = `<style>${CSS}</style><button class="tog" title="Hide or show the dev bar">DEV</button>`
-    + [{ key: '', label: 'Live' }, ...list].map(s => `<button data-dev="${s.key}"${s.key === screen ? ' class="on"' : ''}>${s.label}</button>`).join('');
-  bar.addEventListener('click', e => {
-    const b = /** @type {HTMLElement | null} */ (/** @type {Element} */ (e.target).closest('button'));
-    if (!b) return;
-    if (b.classList.contains('tog')) sessionStorage.devMin = bar.classList.toggle('min') ? '1' : '';
-    else { sessionStorage.devScreen = b.dataset.dev; location.reload(); }  // reload drops the websocket and any page state
+  /** @type {Map<string, typeof list>} */
+  const groups = new Map();
+  for (const s of list) groups.set(s.group || 'Game flow', [...groups.get(s.group || 'Game flow') || [], s]);
+  const opt = (/** @type {{ key: string, label: string }} */ s) => `<option value="${s.key}"${s.key === screen ? ' selected' : ''}>${s.label}</option>`;
+  bar.innerHTML = `<style>${CSS}</style><button class="tog" title="Hide or show the dev bar">DEV</button><select title="Preview a screen">${opt({ key: '', label: 'Live game' })}`
+    + [...groups].map(([g, ss]) => `<optgroup label="${g}">${ss.map(opt).join('')}</optgroup>`).join('') + '</select>';
+  bar.querySelector('.tog')?.addEventListener('click', () => { sessionStorage.devMin = bar.classList.toggle('min') ? '1' : ''; });
+  bar.querySelector('select')?.addEventListener('change', e => {
+    sessionStorage.devScreen = /** @type {HTMLSelectElement} */ (e.target).value;
+    location.reload();  // reload drops the websocket and any page state
   });
   document.body.appendChild(bar);
   const cur = list.find(s => s.key === screen);
