@@ -628,7 +628,9 @@ def score(q, worth, window):
     `worth` is a whole round's points, for sort rounds; `window` the seconds over which the speed bonus runs out."""
     kind, ans = q["kind"], g.answers
     speed = lambda t: 500 + int(500 * max(0.0, 1 - t / window))  # 1000 for an instant answer, 500 after the window
-    deltas, ok, times, show, mine = {}, set(), {pid: a[1] for pid, a in ans.items()}, {}, {}
+    # Sprint answers are {item: (pick, time)}, not (answer, time); their times are worked out below
+    deltas, ok, show, mine = {}, set(), {}, {}
+    times = {} if kind in SPRINT_KINDS else {pid: a[1] for pid, a in ans.items()}
     if kind in CHOICE_KINDS:
         for pid, (i, t) in ans.items():
             if i == q["answer"]:
