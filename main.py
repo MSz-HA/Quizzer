@@ -1,6 +1,7 @@
 """Quiz Party - FastAPI server. Run: python main.py  (needs ANTHROPIC_API_KEY, e.g. in .env)
-Dev mode: python main.py --dev  (questions from mock_questions.json, no API calls, auto-reload)"""
-import asyncio, json, math, os, random, socket, sys, time
+Dev mode: python main.py --dev  (questions from mock_questions.json, no API calls, auto-reload)
+Public https address (for phones outside your Wi-Fi): add --tunnel  (needs cloudflared)"""
+import asyncio, atexit, json, math, os, random, re, socket, subprocess, sys, threading, time
 from pathlib import Path
 
 import segno
@@ -1428,9 +1429,27 @@ def remote_page():
 
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
+
+def start_tunnel():
+    """Starts a Cloudflare quick tunnel to this server and returns its public https address."""
+    try:
+        proc = subprocess.Popen(["cloudflared", "tunnel", "--no-autoupdate", "--url", f"http://localhost:{PORT}"],
+                                stderr=subprocess.PIPE, text=True)
+    except FileNotFoundError:
+        raise SystemExit("--tunnel needs cloudflared, see README")
+    atexit.register(proc.terminate)
+    for line in proc.stderr:  # cloudflared logs the address to stderr
+        if url := re.search(r"https://[\w-]+\.trycloudflare\.com", line):
+            threading.Thread(target=proc.stderr.read, daemon=True).start()  # keep draining so cloudflared never blocks
+            print("Public address:", url[0])
+            return url[0] + "/"
+    raise SystemExit("cloudflared exited without a tunnel address")
+
 if __name__ == "__main__":
     if not (STATIC / "host.html").exists():
         raise SystemExit(f"Missing {STATIC}\\host.html - put host.html and player.html in a folder named static next to main.py")
+    if "--tunnel" in sys.argv:
+        os.environ["PUBLIC_URL"] = PUBLIC_URL = start_tunnel()  # env var so the reloader's worker process sees it too
     if "--dev" in sys.argv:
         os.environ["QUIZ_DEV"] = "1"  # env var so the reloader's worker process sees it too
         uvicorn.run("main:app", host="0.0.0.0", port=PORT, reload=True, app_dir=str(ROOT))

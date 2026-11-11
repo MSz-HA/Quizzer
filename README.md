@@ -36,6 +36,29 @@ into the game's main flow, round types and power-ups) to preview it with sample 
 refreshing after editing CSS/JS keeps you on that screen. **Live game** goes back to the real game; **DEV**
 hides the list.
 
+## Play over the internet (tunnel)
+
+```bash
+python main.py --tunnel        # also works with --dev
+```
+
+Starts a [Cloudflare quick tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/trycloudflare/)
+to the server running on your computer and prints a public address like `https://random-words.trycloudflare.com`.
+The QR code uses it, so phones can join from any network (mobile data too), over https. Open `/host` at that
+address (or still at localhost) on the TV. No account, domain or router setup is needed; the address changes on
+every start and the tunnel closes when the server stops.
+
+Needs `cloudflared` installed: on Debian/Ubuntu, the `.deb` from
+[cloudflared releases](https://github.com/cloudflare/cloudflared/releases/latest); on macOS, `brew install cloudflared`.
+
+Anyone who has the address can open `/host` and start games on your API key, so share it only with players.
+
+**Fixed address on your own domain:** the domain must use Cloudflare DNS. Once:
+`cloudflared tunnel login`, `cloudflared tunnel create quizzer`,
+`cloudflared tunnel route dns quizzer quiz.example.com`. Then each time, run `python main.py` with
+`PUBLIC_URL=https://quiz.example.com/` in `.env`, and in another terminal
+`cloudflared tunnel run --url http://localhost:8000 quizzer`.
+
 ## Docker (local network)
 
 ```bash
